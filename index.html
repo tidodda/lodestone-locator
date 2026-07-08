@@ -3,63 +3,37 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Compass Direction Visualizer</title>
+<title>Lodestone Position Finder</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
   <div class="container">
-    <h1>Minecraft Compass Direction Visualizer</h1>
-    <p class="subtitle">See how the game turns two positions into a compass sprite</p>
-
-    <div class="main-grid">
-
-      <div class="panel">
-        <h2>Positions</h2>
-
-        <div class="input-group">
-          <label>Player X</label>
-          <input type="number" id="playerX" value="0">
-        </div>
-        <div class="input-group">
-          <label>Player Z</label>
-          <input type="number" id="playerZ" value="0">
-        </div>
-        <div class="input-group">
-          <label>Target X</label>
-          <input type="number" id="targetX" value="10">
-        </div>
-        <div class="input-group">
-          <label>Target Z</label>
-          <input type="number" id="targetZ" value="0">
-        </div>
-
-        <h2>Manual sprite preview</h2>
-        <div class="input-group">
-          <label>Sprite</label>
-          <select id="spriteSelect"></select>
-        </div>
-      </div>
-
-      <div class="panel">
-        <h2>Calculated values</h2>
-        <div class="result-row"><span>dx</span><span id="outDx">-</span></div>
-        <div class="result-row"><span>dz</span><span id="outDz">-</span></div>
-        <div class="result-row"><span>angle (rad)</span><span id="outAngleRad">-</span></div>
-        <div class="result-row"><span>angle (deg)</span><span id="outAngleDeg">-</span></div>
-        <div class="result-row"><span>rotation</span><span id="outRotation">-</span></div>
-        <div class="result-row"><span>sprite</span><span id="outSprite">-</span></div>
-      </div>
-
-    </div>
+    <h1>Lodestone Position Finder</h1>
+    <p class="subtitle">Enter each lodestone's coordinates and the compass sprite it shows, then estimate the player's position</p>
 
     <div class="panel">
-      <h2>Preview</h2>
-      <div class="preview-area">
-        <canvas id="previewCanvas" width="600" height="300"></canvas>
-        <div class="compass-preview">
-          <img id="compassImg" src="compass_textures/compass_00.png" alt="compass sprite">
-        </div>
+      <h2>Lodestones</h2>
+      <div id="rows"></div>
+      <button id="addRow" class="btn">+ Add lodestone</button>
+    </div>
+
+    <button id="estimate" class="btn btn-main">Estimate position</button>
+
+    <div class="panel" id="resultPanel" style="display:none">
+      <h2>Result</h2>
+      <div class="result-row"><span>Estimated X</span><span id="outX">-</span></div>
+      <div class="result-row"><span>Estimated Z</span><span id="outZ">-</span></div>
+      <div class="result-row"><span>Rough uncertainty</span><span id="outUncertainty">-</span></div>
+      <div class="result-row"><span>Fit residual</span><span id="outResidual">-</span></div>
+      <canvas id="preview" width="600" height="360"></canvas>
+    </div>
+
+    <div class="sprite-modal" id="spriteModal">
+      <div class="sprite-modal-inner">
+        <h3>Select the sprite that matches</h3>
+        <div class="sprite-grid" id="spriteGrid"></div>
+        <button class="btn" id="closeModal">Cancel</button>
       </div>
     </div>
 
