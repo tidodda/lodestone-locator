@@ -245,42 +245,6 @@ canvas {
   margin-bottom: 10px;
 }
 
-.slider-row {
-  margin: 12px 0;
-  font-size: 13px;
-  color: #ccc;
-}
-
-.slider-row label {
-  display: block;
-  margin-bottom: 6px;
-}
-
-.slider-row input[type="range"] {
-  width: 100%;
-}
-
-.sim-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 14px;
-  font-size: 13px;
-}
-
-.sim-table th {
-  text-align: left;
-  color: #999;
-  font-weight: normal;
-  padding: 6px 8px;
-  border-bottom: 1px solid #333;
-}
-
-.sim-table td {
-  padding: 6px 8px;
-  border-bottom: 1px solid #2a2a2a;
-  font-family: monospace;
-}
-
 footer {
   text-align: center;
   color: #666;
