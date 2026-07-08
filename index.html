@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compass Direction Visualizer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="container">
+    <h1>Minecraft Compass Direction Visualizer</h1>
+    <p class="subtitle">See how the game turns two positions into a compass sprite</p>
+
+    <div class="main-grid">
+
+      <div class="panel">
+        <h2>Positions</h2>
+
+        <div class="input-group">
+          <label>Player X</label>
+          <input type="number" id="playerX" value="0">
+        </div>
+        <div class="input-group">
+          <label>Player Z</label>
+          <input type="number" id="playerZ" value="0">
+        </div>
+        <div class="input-group">
+          <label>Target X</label>
+          <input type="number" id="targetX" value="10">
+        </div>
+        <div class="input-group">
+          <label>Target Z</label>
+          <input type="number" id="targetZ" value="0">
+        </div>
+
+        <h2>Manual sprite preview</h2>
+        <div class="input-group">
+          <label>Sprite</label>
+          <select id="spriteSelect"></select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Calculated values</h2>
+        <div class="result-row"><span>dx</span><span id="outDx">-</span></div>
+        <div class="result-row"><span>dz</span><span id="outDz">-</span></div>
+        <div class="result-row"><span>angle (rad)</span><span id="outAngleRad">-</span></div>
+        <div class="result-row"><span>angle (deg)</span><span id="outAngleDeg">-</span></div>
+        <div class="result-row"><span>rotation</span><span id="outRotation">-</span></div>
+        <div class="result-row"><span>sprite</span><span id="outSprite">-</span></div>
+      </div>
+
+    </div>
+
+    <div class="panel">
+      <h2>Preview</h2>
+      <div class="preview-area">
+        <canvas id="previewCanvas" width="600" height="300"></canvas>
+        <div class="compass-preview">
+          <img id="compassImg" src="compass_textures/compass_00.png" alt="compass sprite">
+        </div>
+      </div>
+    </div>
+
+    <footer>Made by tidodda</footer>
+  </div>
+
+<script src="script.js"></script>
+</body>
+</html>
