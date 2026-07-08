@@ -15,6 +15,12 @@
       <h2>Lodestones</h2>
       <div id="rows"></div>
       <button id="addRow" class="btn">+ Add lodestone</button>
+
+      <div class="json-box">
+        <label>Paste JSON</label>
+        <textarea id="jsonInput" rows="3" placeholder='[{"x": -25000000, "z": 10000000, "sprite": 12}, ...]'></textarea>
+        <button id="loadJson" class="btn">Load JSON</button>
+      </div>
     </div>
 
     <button id="estimate" class="btn btn-main">Estimate position</button>
@@ -26,6 +32,22 @@
       <div class="result-row"><span>Rough uncertainty</span><span id="outUncertainty">-</span></div>
       <div class="result-row"><span>Fit residual</span><span id="outResidual">-</span></div>
       <canvas id="preview" width="600" height="360"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Funnel simulation</h2>
+      <div class="row" style="background:none;padding:0">
+        <div class="coord"><label>Lodestones/round</label><input type="number" id="simPerRound" value="12"></div>
+      </div>
+      <div class="slider-row">
+        <label>Rounds: <span id="roundsVal">4</span></label>
+        <input type="range" id="simRounds" min="1" max="10" value="4">
+      </div>
+      <button id="runSim" class="btn" style="margin-top:10px">Run simulation</button>
+      <table class="sim-table" id="simTable" style="display:none">
+        <thead><tr><th>Round</th><th>Region width</th><th>Error</th></tr></thead>
+        <tbody id="simRows"></tbody>
+      </table>
     </div>
 
     <div class="sprite-modal" id="spriteModal">
