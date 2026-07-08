@@ -29,6 +29,20 @@
       <canvas id="preview" width="600" height="360"></canvas>
     </div>
 
+    <div class="panel">
+      <h2>Funnel simulation</h2>
+      <p class="hint">Simulates the multi-round approach: each round scatters fresh lodestones inside the previous round's estimated region, relinked as if you traveled there and redeployed. Uses the exact fit above, with a randomly placed true target for demonstration.</p>
+      <div class="row" style="background:none;padding:0">
+        <div class="coord"><label>Lodestones/round</label><input type="number" id="simPerRound" value="12"></div>
+        <div class="coord"><label>Rounds</label><input type="number" id="simRounds" value="4"></div>
+      </div>
+      <button id="runSim" class="btn" style="margin-top:10px">Run simulation</button>
+      <table class="sim-table" id="simTable" style="display:none">
+        <thead><tr><th>Round</th><th>Region width</th><th>Error</th></tr></thead>
+        <tbody id="simRows"></tbody>
+      </table>
+    </div>
+
     <div class="sprite-modal" id="spriteModal">
       <div class="sprite-modal-inner">
         <h3>Select the sprite that matches</h3>
