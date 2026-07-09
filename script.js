@@ -317,7 +317,7 @@ function estimate() {
 
   const angles = valid.map(r => ((r.sprite + 17.5) / 32) * 2 * Math.PI);
   const halfRes = (2 * Math.PI / 32) / 2;
-  const numRolls = Math.max(1, parseInt(document.getElementById('numRolls').value) || 1);
+  const numRolls = 5; // fallback-path only (used when wedge intersection can't run)
 
   // Algorithm A: exact wedge intersection (tightest possible, but needs >=3
   // lodestones and can fail to find a feasible region if too many are noisy)
