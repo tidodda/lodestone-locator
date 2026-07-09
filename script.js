@@ -286,7 +286,7 @@ function wedgeSolve(ls, angles, halfRes, maxExclude) {
     const c = polygonCentroid(poly);
     const residuals = ls.map((r, i) => Math.abs(wrap(Math.atan2(c.z - r.z, c.x - r.x) - angles[i]) * 180 / Math.PI));
     const worst = Math.max(...residuals);
-    return { pos: c, uncertainty: maxVertexDist(poly, c), excluded: excl, fitScore: worst };
+    return { pos: c, poly, uncertainty: maxVertexDist(poly, c), excluded: excl, fitScore: worst };
   }
   let overallBest = null;
   for (let k = 0; k <= maxExclude; k++) {
@@ -324,7 +324,7 @@ function estimate() {
   if (valid.length >= 3) {
     const maxExclude = Math.min(2, valid.length - 3);
     const w = wedgeSolve(valid, angles, halfRes, maxExclude);
-    if (w) candidateA = { pos: w.pos, uncertainty: w.uncertainty, excluded: w.excluded, method: 'exact intersection' };
+    if (w) candidateA = { pos: w.pos, poly: w.poly, uncertainty: w.uncertainty, excluded: w.excluded, method: 'exact intersection' };
   }
 
   // Algorithm B: weighted least-squares over random ensembles (always available,
@@ -402,7 +402,51 @@ function estimate() {
   document.getElementById('outUncertainty').textContent = '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
   document.getElementById('outMethod').textContent = chosen.method;
+  renderMap(usedValid, chosen.pos, chosen.poly || null);
   resultPanel.style.display = 'block';
+}
+
+function renderMap(ls, pos, poly) {
+  const svg = document.getElementById('resultMap');
+  const vertBox = document.getElementById('polyVertices');
+  if (!poly || poly.length < 3) {
+    svg.innerHTML = '';
+    svg.style.display = 'none';
+    vertBox.style.display = 'none';
+    return;
+  }
+  svg.style.display = 'block';
+
+  // world bounds: lodestones + polygon, with padding
+  const allPts = [...ls, ...poly, pos];
+  const xs = allPts.map(p => p.x), zs = allPts.map(p => p.z);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+  const spanX = Math.max(maxX - minX, 1), spanZ = Math.max(maxZ - minZ, 1);
+  const pad = Math.max(spanX, spanZ) * 0.15;
+  const w = 400, h = 400;
+  const scale = Math.min(w / (spanX + 2 * pad), h / (spanZ + 2 * pad));
+  const ox = minX - pad, oz = minZ - pad;
+  const toSvg = p => ({ x: (p.x - ox) * scale, y: (p.z - oz) * scale });
+
+  let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg">';
+  // feasible polygon
+  const polyPts = poly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
+  s += '<polygon points="' + polyPts + '" fill="#3a5a8a" fill-opacity="0.35" stroke="#6a8ac0" stroke-width="2"/>';
+  // lodestones
+  ls.forEach(r => {
+    const t = toSvg(r);
+    s += '<circle cx="' + t.x + '" cy="' + t.y + '" r="4" fill="#e0a030"/>';
+  });
+  // estimated point
+  const tp = toSvg(pos);
+  s += '<circle cx="' + tp.x + '" cy="' + tp.y + '" r="5" fill="#e05050" stroke="#fff" stroke-width="1.5"/>';
+  s += '</svg>';
+  svg.innerHTML = s;
+
+  vertBox.style.display = 'block';
+  vertBox.textContent = 'Feasible region vertices: ' +
+    poly.map(p => '(' + p.x.toFixed(0) + ', ' + p.z.toFixed(0) + ')').join('  ');
 }
 
 estimateBtn.addEventListener('click', estimate);
