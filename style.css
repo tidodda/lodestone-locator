@@ -1,4 +1,6 @@
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -11,49 +13,51 @@ body {
 
 .container {
   width: 100%;
-  max-width: 460px;
-  padding: 40px 20px 28px;
+  max-width: 420px;
+  padding: 24px 14px 18px;
 }
 
 h1 {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
   text-align: center;
   letter-spacing: -0.01em;
 }
 
 .panel {
   background: #242424;
-  border-radius: 8px;
-  padding: 16px 18px;
-  margin-bottom: 14px;
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
 }
 
 .panel h2 {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   color: #888;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 4px;
+  margin-bottom: 4px;
 }
 
 .row label {
-  font-size: 10px;
+  font-size: 9px;
   color: #777;
   display: block;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
-.row .coord { width: 78px; }
+.row .coord {
+  width: 65px;
+}
 
 .row input,
 .json-box textarea {
@@ -61,11 +65,11 @@ h1 {
   border: 1px solid #3a3a3a;
   color: #e0e0e0;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .row input {
-  padding: 6px 8px;
+  padding: 5px 6px;
   width: 100%;
 }
 
@@ -77,24 +81,27 @@ h1 {
 .sprite-picker {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   cursor: pointer;
   background: #1a1a1a;
   border: 1px solid #3a3a3a;
   border-radius: 4px;
-  padding: 6px 10px;
+  padding: 5px 7px;
   flex: 1;
 }
-.sprite-picker:hover { border-color: #555; }
+
+.sprite-picker:hover {
+  border-color: #555;
+}
 
 .sprite-picker img {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   image-rendering: pixelated;
 }
 
 .sprite-picker span {
-  font-size: 13px;
+  font-size: 12px;
   color: #ccc;
 }
 
@@ -102,9 +109,9 @@ h1 {
   background: none;
   border: none;
   color: #a55;
-  font-size: 16px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 0 4px;
+  padding: 0 3px;
   line-height: 1;
 }
 
@@ -112,16 +119,19 @@ h1 {
   background: #2a2a2a;
   border: 1px solid #3a3a3a;
   color: #e0e0e0;
-  padding: 8px 14px;
+  padding: 6px 10px;
   border-radius: 5px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
 }
-.btn:hover { background: #333; }
+
+.btn:hover {
+  background: #333;
+}
 
 #addRow {
   width: 100%;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .btn-main {
@@ -129,46 +139,49 @@ h1 {
   width: 100%;
   background: #3a5a8a;
   border-color: #4a6a9a;
-  margin-bottom: 14px;
-  font-size: 14px;
+  margin-bottom: 8px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 12px;
+  padding: 9px;
 }
-.btn-main:hover { background: #46699e; }
+
+.btn-main:hover {
+  background: #46699e;
+}
 
 .warning-banner {
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin-top: 8px;
+  padding: 7px 9px;
   background: #4a3a1a;
   border: 1px solid #7a5a2a;
-  border-radius: 6px;
+  border-radius: 5px;
   color: #e0c080;
-  font-size: 12px;
+  font-size: 11px;
   text-align: left;
 }
 
 .result-map {
   display: block;
   width: 100%;
-  max-width: 320px;
+  max-width: 260px;
   aspect-ratio: 1;
-  margin: 4px auto 0;
+  margin: 3px auto 0;
   background: #1a1a1a;
   border: 1px solid #333;
-  border-radius: 6px;
+  border-radius: 5px;
 }
 
 .map-label {
-  margin-top: 12px;
-  font-size: 11px;
+  margin-top: 8px;
+  font-size: 10px;
   color: #808080;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .poly-vertices {
-  margin-top: 8px;
-  font-size: 11px;
+  margin-top: 5px;
+  font-size: 10px;
   color: #909090;
   text-align: left;
   word-break: break-word;
@@ -181,8 +194,8 @@ h1 {
 .readout {
   display: flex;
   justify-content: center;
-  gap: 28px;
-  padding: 4px 0 14px;
+  gap: 20px;
+  padding: 2px 0 8px;
 }
 
 .readout-item {
@@ -192,13 +205,13 @@ h1 {
 }
 
 .readout-label {
-  font-size: 10px;
+  font-size: 9px;
   color: #888;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
 }
 
 .readout-value {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
   color: #ffd24a;
 }
@@ -206,13 +219,19 @@ h1 {
 .result-row {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 4px 0;
   border-bottom: 1px solid #333;
-  font-size: 13px;
+  font-size: 12px;
   text-align: left;
 }
-.result-row:last-of-type { border-bottom: none; }
-.result-row span:last-child { font-family: monospace; }
+
+.result-row:last-of-type {
+  border-bottom: none;
+}
+
+.result-row span:last-child {
+  font-family: monospace;
+}
 
 .sprite-modal {
   display: none;
@@ -222,80 +241,98 @@ h1 {
   align-items: center;
   justify-content: center;
   z-index: 10;
-  padding: 20px;
+  padding: 14px;
 }
-.sprite-modal.open { display: flex; }
+
+.sprite-modal.open {
+  display: flex;
+}
 
 .sprite-modal-inner {
   background: #242424;
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 400px;
+  border-radius: 6px;
+  padding: 14px;
+  max-width: 360px;
   width: 100%;
 }
+
 .sprite-modal-inner h3 {
   margin-top: 0;
-  font-size: 13px;
+  font-size: 12px;
   text-align: center;
 }
 
 .sprite-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 5px;
-  margin-bottom: 14px;
+  gap: 3px;
+  margin-bottom: 8px;
 }
+
 .sprite-grid .sprite-option {
   background: #1a1a1a;
   border: 1px solid #3a3a3a;
-  border-radius: 4px;
-  padding: 4px;
+  border-radius: 3px;
+  padding: 2px;
   cursor: pointer;
   text-align: center;
 }
-.sprite-grid .sprite-option:hover { border-color: #666; }
+
+.sprite-grid .sprite-option:hover {
+  border-color: #666;
+}
+
 .sprite-grid .sprite-option img {
   width: 100%;
   image-rendering: pixelated;
 }
+
 .sprite-grid .sprite-option span {
   display: block;
-  font-size: 9px;
+  font-size: 8px;
   color: #888;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
-.sprite-modal-inner .btn { width: 100%; }
+.sprite-modal-inner .btn {
+  width: 100%;
+}
 
 .json-box summary {
-  font-size: 11px;
+  font-size: 10px;
   color: #888;
   cursor: pointer;
-  margin-top: 10px;
-  padding-top: 10px;
+  margin-top: 6px;
+  padding-top: 6px;
   border-top: 1px solid #333;
 }
-.json-box[open] summary { margin-bottom: 8px; }
+
+.json-box[open] summary {
+  margin-bottom: 6px;
+}
 
 .json-box textarea {
   width: 100%;
-  padding: 7px;
+  padding: 5px;
   font-family: monospace;
   resize: vertical;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .json-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
-.json-actions .btn { flex: 1; }
+
+.json-actions .btn {
+  flex: 1;
+}
 
 footer {
   text-align: center;
   color: #555;
-  font-size: 11px;
-  margin-top: 22px;
+  font-size: 10px;
+  margin-top: 12px;
 }
 
 footer a {
