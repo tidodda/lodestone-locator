@@ -172,7 +172,7 @@ function estimate() {
     return;
   }
 
-  const angles = valid.map(r => ((r.sprite + 0.5) / 32) * 2 * Math.PI);
+  const angles = valid.map(r => ((r.sprite + 17.5) / 32) * 2 * Math.PI);
 
   const pos = ensembleSolve(valid, angles);
   if (!pos) {
