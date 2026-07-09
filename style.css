@@ -152,10 +152,18 @@ h1 {
   width: 100%;
   max-width: 320px;
   aspect-ratio: 1;
-  margin: 12px auto 0;
+  margin: 4px auto 0;
   background: #1a1a1a;
   border: 1px solid #333;
   border-radius: 6px;
+}
+
+.map-label {
+  margin-top: 12px;
+  font-size: 11px;
+  color: #808080;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .poly-vertices {
