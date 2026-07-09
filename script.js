@@ -11,6 +11,7 @@ const ctx = canvas.getContext('2d');
 let rows = [];
 let nextId = 0;
 let modalTargetRowId = null;
+let spawnSprite = 0;
 
 function spritePath(i) {
   return 'compass_textures/compass_' + String(i).padStart(2, '0') + '.png';
@@ -80,6 +81,13 @@ function openSpriteModal(rowId) {
 spriteGrid.addEventListener('click', e => {
   const opt = e.target.closest('.sprite-option');
   if (!opt) return;
+  if (modalTargetRowId === 'spawn') {
+    spawnSprite = parseInt(opt.dataset.sprite);
+    document.getElementById('spawnSpriteImg').src = spritePath(spawnSprite);
+    document.getElementById('spawnSpriteLabel').textContent = '#' + String(spawnSprite).padStart(2, '0');
+    spriteModal.classList.remove('open');
+    return;
+  }
   const row = rows.find(r => r.id === modalTargetRowId);
   row.sprite = parseInt(opt.dataset.sprite);
   spriteModal.classList.remove('open');
@@ -100,10 +108,67 @@ function wrap(a) {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
+function solvePosition(ls, angles) {
+  let Sxx = 0, Sxy = 0, Syy = 0, Sxc = 0, Syc = 0;
+  ls.forEach((r, i) => {
+    const a = Math.sin(angles[i]);
+    const b = -Math.cos(angles[i]);
+    const c = a * r.x + b * r.z;
+    Sxx += a * a; Sxy += a * b; Syy += b * b;
+    Sxc += a * c; Syc += b * c;
+  });
+  const det = Sxx * Syy - Sxy * Sxy;
+  if (Math.abs(det) < 1e-9) return null;
+  return {
+    x: (Sxc * Syy - Syc * Sxy) / det,
+    z: (Sxx * Syc - Sxy * Sxc) / det
+  };
+}
+function geometricMedian(points, iters) {
+  let x = points.reduce((s, p) => s + p.x, 0) / points.length;
+  let z = points.reduce((s, p) => s + p.z, 0) / points.length;
+  for (let it = 0; it < iters; it++) {
+    let wsum = 0, xs = 0, zs = 0;
+    points.forEach(p => {
+      const d = Math.hypot(p.x - x, p.z - z) + 1e-6;
+      const w = 1 / d;
+      wsum += w; xs += w * p.x; zs += w * p.z;
+    });
+    if (wsum === 0) break;
+    x = xs / wsum; z = zs / wsum;
+  }
+  return { x, z };
+}
+
+function ensembleSolve(ls, angles) {
+  if (ls.length < 4) return solvePosition(ls, angles);
+
+  const subsetSize = Math.min(6, ls.length - 1);
+  const numSubsets = 60;
+  const estimates = [];
+  for (let s = 0; s < numSubsets; s++) {
+    const idx = [...Array(ls.length).keys()];
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    const chosen = idx.slice(0, subsetSize);
+    const subLs = chosen.map(i => ls[i]);
+    const subAngles = chosen.map(i => angles[i]);
+    const pos = solvePosition(subLs, subAngles);
+    if (pos) estimates.push(pos);
+  }
+  if (estimates.length === 0) return solvePosition(ls, angles);
+  return geometricMedian(estimates, 40);
+}
+
 function estimate() {
   const valid = rows
     .map(r => ({ x: parseFloat(r.x), z: parseFloat(r.z), sprite: r.sprite }))
     .filter(r => Number.isFinite(r.x) && Number.isFinite(r.z));
+
+  const spawnEntry = getSpawnEntry();
+  if (spawnEntry) valid.push(spawnEntry);
 
   if (valid.length < 2) {
     alert('Add at least 2 lodestones with coordinates.');
@@ -112,27 +177,12 @@ function estimate() {
 
   const angles = valid.map(r => ((r.sprite + 0.5) / 32) * 2 * Math.PI);
 
-  // each reading gives: sin(angle)*px - cos(angle)*pz = sin(angle)*Lx - cos(angle)*Lz
-  let Sxx = 0, Sxy = 0, Syy = 0, Sxc = 0, Syc = 0;
-  valid.forEach((r, i) => {
-    const a = Math.sin(angles[i]);
-    const b = -Math.cos(angles[i]);
-    const c = a * r.x + b * r.z;
-    Sxx += a * a;
-    Sxy += a * b;
-    Syy += b * b;
-    Sxc += a * c;
-    Syc += b * c;
-  });
-
-  const det = Sxx * Syy - Sxy * Sxy;
-  if (Math.abs(det) < 1e-9) {
+  const pos = ensembleSolve(valid, angles);
+  if (!pos) {
     alert('Lodestone readings are too close to parallel to solve. Use lodestones spread further apart.');
     return;
   }
-
-  const px = (Sxc * Syy - Syc * Sxy) / det;
-  const pz = (Sxx * Syc - Sxy * Sxc) / det;
+  const px = pos.x, pz = pos.z;
 
   let sumSqDeg = 0;
   let nearest = Infinity;
@@ -155,6 +205,64 @@ function estimate() {
   resultPanel.style.display = 'block';
 
   drawPreview(valid, px, pz);
+  showNextRoundGuidance(valid, angles, px, pz);
+}
+
+// sigma of a uniform distribution over one 11.25 degree bin (32 states): width/sqrt(12)
+const SIGMA_THETA = ((360 / 32) / Math.sqrt(12)) * Math.PI / 180;
+
+function computeSemiMajorAxis(ls, angles, px, pz) {
+  let Sxx = 0, Sxy = 0, Syy = 0;
+  ls.forEach((l, i) => {
+    const dx = px - l.x, dz = pz - l.z;
+    const d2 = dx * dx + dz * dz || 1e-6;
+    const a = Math.sin(angles[i]), b = -Math.cos(angles[i]);
+    const w = 1 / d2;
+    Sxx += w * a * a; Sxy += w * a * b; Syy += w * b * b;
+  });
+  const det = Sxx * Syy - Sxy * Sxy;
+  const scale = Sxx * Syy;
+  if (scale <= 0 || Math.abs(det) < scale * 1e-9) return null;
+  const iXX = Syy / det, iXZ = -Sxy / det, iZZ = Sxx / det;
+  const covXX = SIGMA_THETA * SIGMA_THETA * iXX;
+  const covXZ = SIGMA_THETA * SIGMA_THETA * iXZ;
+  const covZZ = SIGMA_THETA * SIGMA_THETA * iZZ;
+  const tr = covXX + covZZ, dif = (covXX - covZZ) / 2;
+  const disc = Math.sqrt(dif * dif + covXZ * covXZ);
+  const lambda1 = tr / 2 + disc;
+  return Math.sqrt(Math.max(lambda1, 0));
+}
+
+function showNextRoundGuidance(valid, angles, px, pz) {
+  const panel = document.getElementById('nextRoundPanel');
+  const semiMajor = computeSemiMajorAxis(valid, angles, px, pz);
+  if (!semiMajor) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // typical case ~1.5x semiMajor; empirically the tail is heavy, so the "safe"
+  // radius uses a much larger multiplier to actually cover bad-geometry cases
+  const typicalRadius = Math.round(semiMajor * 1.5);
+  const safeRadius = Math.round(semiMajor * 13);
+
+  document.getElementById('outTypicalRadius').textContent = '≈' + typicalRadius.toLocaleString();
+  document.getElementById('outSafeRadius').textContent = '≈' + safeRadius.toLocaleString();
+
+  const ringRadius = safeRadius * 1.75;
+  const suggestedCount = 6;
+  const suggestions = [];
+  for (let i = 0; i < suggestedCount; i++) {
+    const ang = (i / suggestedCount) * 2 * Math.PI;
+    suggestions.push({
+      x: Math.round(px + ringRadius * Math.cos(ang)),
+      z: Math.round(pz + ringRadius * Math.sin(ang)),
+      sprite: 0
+    });
+  }
+  document.getElementById('nextRoundJson').value = JSON.stringify(suggestions, null, 2);
+
+  panel.style.display = 'block';
 }
 
 function drawPreview(lodestones, px, pz) {
@@ -191,6 +299,22 @@ function drawPreview(lodestones, px, pz) {
   ctx.fill();
   ctx.fillStyle = '#ffd24a';
   ctx.fillText('estimate', est.x + 10, est.y - 8);
+}
+
+document.getElementById('useSpawn').addEventListener('change', e => {
+  document.getElementById('spawnRow').style.display = e.target.checked ? 'flex' : 'none';
+});
+
+document.getElementById('spawnSpritePicker').addEventListener('click', () => {
+  openSpriteModal('spawn');
+});
+
+function getSpawnEntry() {
+  if (!document.getElementById('useSpawn').checked) return null;
+  const x = parseFloat(document.getElementById('spawnX').value);
+  const z = parseFloat(document.getElementById('spawnZ').value);
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
+  return { x, z, sprite: spawnSprite };
 }
 
 estimateBtn.addEventListener('click', estimate);
