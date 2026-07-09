@@ -5,8 +5,6 @@ const resultPanel = document.getElementById('resultPanel');
 const spriteModal = document.getElementById('spriteModal');
 const spriteGrid = document.getElementById('spriteGrid');
 const closeModalBtn = document.getElementById('closeModal');
-const canvas = document.getElementById('preview');
-const ctx = canvas.getContext('2d');
 
 let rows = [];
 let nextId = 0;
@@ -192,102 +190,6 @@ function estimate() {
   document.getElementById('outUncertainty').textContent = '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
   resultPanel.style.display = 'block';
-
-  drawPreview(valid, px, pz);
-  showNextRoundGuidance(valid, angles, px, pz);
-}
-
-// sigma of a uniform distribution over one 11.25 degree bin (32 states): width/sqrt(12)
-const SIGMA_THETA = ((360 / 32) / Math.sqrt(12)) * Math.PI / 180;
-
-function computeSemiMajorAxis(ls, angles, px, pz) {
-  let Sxx = 0, Sxy = 0, Syy = 0;
-  ls.forEach((l, i) => {
-    const dx = px - l.x, dz = pz - l.z;
-    const d2 = dx * dx + dz * dz || 1e-6;
-    const a = Math.sin(angles[i]), b = -Math.cos(angles[i]);
-    const w = 1 / d2;
-    Sxx += w * a * a; Sxy += w * a * b; Syy += w * b * b;
-  });
-  const det = Sxx * Syy - Sxy * Sxy;
-  const scale = Sxx * Syy;
-  if (scale <= 0 || Math.abs(det) < scale * 1e-9) return null;
-  const iXX = Syy / det, iXZ = -Sxy / det, iZZ = Sxx / det;
-  const covXX = SIGMA_THETA * SIGMA_THETA * iXX;
-  const covXZ = SIGMA_THETA * SIGMA_THETA * iXZ;
-  const covZZ = SIGMA_THETA * SIGMA_THETA * iZZ;
-  const tr = covXX + covZZ, dif = (covXX - covZZ) / 2;
-  const disc = Math.sqrt(dif * dif + covXZ * covXZ);
-  const lambda1 = tr / 2 + disc;
-  return Math.sqrt(Math.max(lambda1, 0));
-}
-
-function showNextRoundGuidance(valid, angles, px, pz) {
-  const panel = document.getElementById('nextRoundPanel');
-  const semiMajor = computeSemiMajorAxis(valid, angles, px, pz);
-  if (!semiMajor) {
-    panel.style.display = 'none';
-    return;
-  }
-
-  // typical case ~1.5x semiMajor; empirically the tail is heavy, so the "safe"
-  // radius uses a much larger multiplier to actually cover bad-geometry cases
-  const typicalRadius = Math.round(semiMajor * 1.5);
-  const safeRadius = Math.round(semiMajor * 13);
-
-  document.getElementById('outTypicalRadius').textContent = '≈' + typicalRadius.toLocaleString();
-  document.getElementById('outSafeRadius').textContent = '≈' + safeRadius.toLocaleString();
-
-  const ringRadius = safeRadius * 1.75;
-  const suggestedCount = 6;
-  const suggestions = [];
-  for (let i = 0; i < suggestedCount; i++) {
-    const ang = (i / suggestedCount) * 2 * Math.PI;
-    suggestions.push({
-      x: Math.round(px + ringRadius * Math.cos(ang)),
-      z: Math.round(pz + ringRadius * Math.sin(ang)),
-      sprite: 0
-    });
-  }
-  document.getElementById('nextRoundJson').value = JSON.stringify(suggestions, null, 2);
-
-  panel.style.display = 'block';
-}
-
-function drawPreview(lodestones, px, pz) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const allX = lodestones.map(l => l.x).concat([px]);
-  const allZ = lodestones.map(l => l.z).concat([pz]);
-  const minX = Math.min(...allX), maxX = Math.max(...allX);
-  const minZ = Math.min(...allZ), maxZ = Math.max(...allZ);
-  const pad = 40;
-  const scaleX = (canvas.width - pad * 2) / Math.max(maxX - minX, 1);
-  const scaleZ = (canvas.height - pad * 2) / Math.max(maxZ - minZ, 1);
-  const scale = Math.min(scaleX, scaleZ);
-
-  function toPixel(x, z) {
-    return { x: pad + (x - minX) * scale, y: pad + (z - minZ) * scale };
-  }
-
-  lodestones.forEach((l, i) => {
-    const p = toPixel(l.x, l.z);
-    ctx.fillStyle = '#5ab08a';
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#ccc';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('L' + (i + 1), p.x + 9, p.y - 8);
-  });
-
-  const est = toPixel(px, pz);
-  ctx.fillStyle = '#ffd24a';
-  ctx.beginPath();
-  ctx.arc(est.x, est.y, 7, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = '#ffd24a';
-  ctx.fillText('estimate', est.x + 10, est.y - 8);
 }
 
 estimateBtn.addEventListener('click', estimate);
