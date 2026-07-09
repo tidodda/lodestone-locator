@@ -407,42 +407,51 @@ function estimate() {
 }
 
 function renderMap(ls, pos, poly) {
-  const svg = document.getElementById('resultMap');
+  const overviewSvg = document.getElementById('resultMap');
+  const detailSvg = document.getElementById('resultMapDetail');
+  const overviewLabel = document.getElementById('overviewLabel');
+  const detailLabel = document.getElementById('detailLabel');
   const vertBox = document.getElementById('polyVertices');
   if (!poly || poly.length < 3) {
-    svg.innerHTML = '';
-    svg.style.display = 'none';
+    overviewSvg.innerHTML = ''; overviewSvg.style.display = 'none'; overviewLabel.style.display = 'none';
+    detailSvg.innerHTML = ''; detailSvg.style.display = 'none'; detailLabel.style.display = 'none';
     vertBox.style.display = 'none';
     return;
   }
-  svg.style.display = 'block';
 
-  // world bounds: lodestones + polygon, with padding
-  const allPts = [...ls, ...poly, pos];
-  const xs = allPts.map(p => p.x), zs = allPts.map(p => p.z);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minZ = Math.min(...zs), maxZ = Math.max(...zs);
-  const spanX = Math.max(maxX - minX, 1), spanZ = Math.max(maxZ - minZ, 1);
-  const pad = Math.max(spanX, spanZ) * 0.15;
-  const w = 400, h = 400;
-  const scale = Math.min(w / (spanX + 2 * pad), h / (spanZ + 2 * pad));
-  const ox = minX - pad, oz = minZ - pad;
-  const toSvg = p => ({ x: (p.x - ox) * scale, y: (p.z - oz) * scale });
+  function drawSvg(el, boundsPts, drawLodestones) {
+    const xs = boundsPts.map(p => p.x), zs = boundsPts.map(p => p.z);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+    const spanX = Math.max(maxX - minX, 1), spanZ = Math.max(maxZ - minZ, 1);
+    const pad = Math.max(spanX, spanZ) * 0.25;
+    const w = 400, h = 400;
+    const scale = Math.min(w / (spanX + 2 * pad), h / (spanZ + 2 * pad));
+    const ox = minX - pad, oz = minZ - pad;
+    const toSvg = p => ({ x: (p.x - ox) * scale, y: (p.z - oz) * scale });
 
-  let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg">';
-  // feasible polygon
-  const polyPts = poly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
-  s += '<polygon points="' + polyPts + '" fill="#3a5a8a" fill-opacity="0.35" stroke="#6a8ac0" stroke-width="2"/>';
-  // lodestones
-  ls.forEach(r => {
-    const t = toSvg(r);
-    s += '<circle cx="' + t.x + '" cy="' + t.y + '" r="4" fill="#e0a030"/>';
-  });
-  // estimated point
-  const tp = toSvg(pos);
-  s += '<circle cx="' + tp.x + '" cy="' + tp.y + '" r="5" fill="#e05050" stroke="#fff" stroke-width="1.5"/>';
-  s += '</svg>';
-  svg.innerHTML = s;
+    let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg">';
+    const polyPts = poly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
+    s += '<polygon points="' + polyPts + '" fill="#3a5a8a" fill-opacity="0.45" stroke="#6a8ac0" stroke-width="2"/>';
+    if (drawLodestones) {
+      ls.forEach(r => {
+        const t = toSvg(r);
+        s += '<circle cx="' + t.x + '" cy="' + t.y + '" r="4" fill="#e0a030"/>';
+      });
+    }
+    const tp = toSvg(pos);
+    s += '<circle cx="' + tp.x + '" cy="' + tp.y + '" r="5" fill="#e05050" stroke="#fff" stroke-width="1.5"/>';
+    s += '</svg>';
+    el.innerHTML = s;
+    el.style.display = 'block';
+  }
+
+  // overview: full context (lodestones + polygon, polygon may render as a dot here)
+  drawSvg(overviewSvg, [...ls, ...poly, pos], true);
+  overviewLabel.style.display = 'block';
+  // detail: zoomed tightly to the polygon itself so its actual shape is visible
+  drawSvg(detailSvg, [...poly, pos], false);
+  detailLabel.style.display = 'block';
 
   vertBox.style.display = 'block';
   vertBox.textContent = 'Feasible region vertices: ' +
