@@ -1,80 +1,77 @@
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
   background: #1a1a1a;
   color: #e0e0e0;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
 }
 
 .container {
-  max-width: 700px;
+  max-width: 640px;
   margin: 0 auto;
   padding: 40px 20px;
 }
 
 h1 {
-  font-size: 24px;
-  margin-bottom: 4px;
+  font-size: 22px;
+  margin: 0 0 4px;
 }
 
 .subtitle {
-  color: #999;
-  margin-top: 0;
-  margin-bottom: 30px;
-  font-size: 14px;
+  color: #888;
+  margin: 0 0 28px;
+  font-size: 13px;
 }
 
 .panel {
   background: #242424;
-  border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 20px;
+  border-radius: 6px;
+  padding: 18px 20px;
+  margin-bottom: 18px;
 }
 
 .panel h2 {
-  font-size: 15px;
-  margin-top: 0;
-  margin-bottom: 14px;
-  color: #ccc;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px;
+  color: #bbb;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-  background: #1e1e1e;
-  padding: 10px;
-  border-radius: 8px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .row label {
-  font-size: 12px;
-  color: #999;
+  font-size: 11px;
+  color: #888;
   display: block;
-  margin-bottom: 3px;
+  margin-bottom: 2px;
 }
 
-.row .coord {
-  width: 90px;
-}
+.row .coord { width: 85px; }
 
-.row input {
+.row input,
+.json-box textarea,
+#nextRoundJson {
   background: #1a1a1a;
   border: 1px solid #3a3a3a;
   color: #e0e0e0;
-  padding: 6px 8px;
-  border-radius: 6px;
-  width: 100%;
+  border-radius: 4px;
   font-size: 13px;
+}
+
+.row input {
+  padding: 6px 8px;
+  width: 100%;
 }
 
 .row input:focus {
   outline: none;
-  border-color: #6a6a6a;
+  border-color: #666;
 }
 
 .sprite-picker {
@@ -84,13 +81,13 @@ h1 {
   cursor: pointer;
   background: #1a1a1a;
   border: 1px solid #3a3a3a;
-  border-radius: 6px;
+  border-radius: 4px;
   padding: 6px 10px;
 }
 
 .sprite-picker img {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   image-rendering: pixelated;
 }
 
@@ -103,109 +100,97 @@ h1 {
   background: none;
   border: none;
   color: #a55;
-  font-size: 18px;
+  font-size: 17px;
   cursor: pointer;
-  padding: 0 6px;
+  padding: 0 4px;
 }
 
 .btn {
   background: #2a2a2a;
   border: 1px solid #3a3a3a;
   color: #e0e0e0;
-  padding: 9px 16px;
-  border-radius: 8px;
+  padding: 8px 14px;
+  border-radius: 5px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-.btn:hover {
-  background: #333;
-}
+.btn:hover { background: #333; }
 
 .btn-main {
   display: block;
   width: 100%;
   background: #3a5a8a;
   border-color: #4a6a9a;
-  margin-bottom: 20px;
-  font-size: 15px;
-  padding: 12px;
+  margin-bottom: 18px;
+  font-size: 14px;
+  padding: 11px;
 }
 
-.btn-main:hover {
-  background: #46699e;
-}
+.btn-main:hover { background: #46699e; }
 
 .result-row {
   display: flex;
   justify-content: space-between;
-  padding: 6px 0;
+  padding: 5px 0;
   border-bottom: 1px solid #333;
-  font-size: 14px;
+  font-size: 13px;
 }
 
-.result-row:last-of-type {
-  border-bottom: none;
-}
+.result-row:last-of-type { border-bottom: none; }
 
-.result-row span:last-child {
-  font-family: monospace;
-}
+.result-row span:last-child { font-family: monospace; }
 
 canvas {
   width: 100%;
   background: #1a1a1a;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid #333;
-  margin-top: 14px;
+  margin-top: 12px;
 }
 
 .sprite-modal {
   display: none;
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  inset: 0;
   background: rgba(0,0,0,0.6);
   align-items: center;
   justify-content: center;
   z-index: 10;
 }
 
-.sprite-modal.open {
-  display: flex;
-}
+.sprite-modal.open { display: flex; }
 
 .sprite-modal-inner {
   background: #242424;
-  border-radius: 10px;
+  border-radius: 6px;
   padding: 20px;
-  max-width: 480px;
+  max-width: 440px;
   width: 90%;
 }
 
 .sprite-modal-inner h3 {
   margin-top: 0;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .sprite-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 16px;
 }
 
 .sprite-grid .sprite-option {
   background: #1a1a1a;
   border: 1px solid #3a3a3a;
-  border-radius: 6px;
-  padding: 6px;
+  border-radius: 4px;
+  padding: 5px;
   cursor: pointer;
   text-align: center;
 }
 
-.sprite-grid .sprite-option:hover {
-  border-color: #6a6a6a;
-}
+.sprite-grid .sprite-option:hover { border-color: #666; }
 
 .sprite-grid .sprite-option img {
   width: 100%;
@@ -214,59 +199,50 @@ canvas {
 
 .sprite-grid .sprite-option span {
   display: block;
-  font-size: 10px;
-  color: #999;
-  margin-top: 3px;
+  font-size: 9px;
+  color: #888;
+  margin-top: 2px;
 }
 
 .json-box {
-  margin-top: 16px;
+  margin-top: 14px;
   border-top: 1px solid #333;
-  padding-top: 14px;
+  padding-top: 12px;
 }
 
 .json-box label {
-  font-size: 12px;
-  color: #999;
+  font-size: 11px;
+  color: #888;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
 }
 
 .json-box textarea {
   width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  color: #e0e0e0;
-  padding: 8px;
-  border-radius: 6px;
+  padding: 7px;
   font-family: monospace;
-  font-size: 12px;
   resize: vertical;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .hint {
   font-size: 12px;
-  color: #999;
-  margin: 10px 0;
+  color: #888;
+  margin: 8px 0;
   line-height: 1.5;
 }
 
 #nextRoundJson {
   width: 100%;
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
   color: #9c9;
-  padding: 8px;
-  border-radius: 6px;
+  padding: 7px;
   font-family: monospace;
-  font-size: 12px;
   resize: vertical;
 }
 
 footer {
   text-align: center;
   color: #666;
-  font-size: 12px;
-  margin-top: 30px;
+  font-size: 11px;
+  margin-top: 26px;
 }
