@@ -98,11 +98,12 @@ function wrap(a) {
   return Math.atan2(Math.sin(a), Math.cos(a));
 }
 
-function solvePosition(ls, angles) {
+function solvePosition(ls, angles, weights) {
   let Sxx = 0, Sxy = 0, Syy = 0, Sxc = 0, Syc = 0;
   ls.forEach((r, i) => {
-    const a = Math.sin(angles[i]);
-    const b = -Math.cos(angles[i]);
+    const w = weights ? weights[i] : 1;
+    const a = Math.sin(angles[i]) * w;
+    const b = -Math.cos(angles[i]) * w;
     const c = a * r.x + b * r.z;
     Sxx += a * a; Sxy += a * b; Syy += b * b;
     Sxc += a * c; Syc += b * c;
@@ -113,6 +114,20 @@ function solvePosition(ls, angles) {
     x: (Sxc * Syy - Syc * Sxy) / det,
     z: (Sxx * Syc - Sxy * Sxc) / det
   };
+}
+
+// Iteratively reweighted least squares: closer lodestones get more weight,
+// since the same angular error covers less ground distance-wise.
+function weightedSolve(ls, angles, iters) {
+  let pos = solvePosition(ls, angles);
+  if (!pos) return null;
+  for (let it = 0; it < (iters || 3); it++) {
+    const weights = ls.map(r => 1 / (Math.hypot(r.x - pos.x, r.z - pos.z) + 1));
+    const next = solvePosition(ls, angles, weights);
+    if (!next) break;
+    pos = next;
+  }
+  return pos;
 }
 function geometricMedian(points, iters) {
   let x = points.reduce((s, p) => s + p.x, 0) / points.length;
@@ -132,7 +147,7 @@ function geometricMedian(points, iters) {
 
 function ensembleSolve(ls, angles) {
   if (ls.length < 4) {
-    const pos = solvePosition(ls, angles);
+    const pos = weightedSolve(ls, angles);
     return pos ? { ...pos, spread: 0 } : null;
   }
 
@@ -148,11 +163,11 @@ function ensembleSolve(ls, angles) {
     const chosen = idx.slice(0, subsetSize);
     const subLs = chosen.map(i => ls[i]);
     const subAngles = chosen.map(i => angles[i]);
-    const pos = solvePosition(subLs, subAngles);
+    const pos = weightedSolve(subLs, subAngles);
     if (pos) estimates.push(pos);
   }
   if (estimates.length === 0) {
-    const pos = solvePosition(ls, angles);
+    const pos = weightedSolve(ls, angles);
     return pos ? { ...pos, spread: 0 } : null;
   }
   const med = geometricMedian(estimates, 40);
@@ -160,6 +175,23 @@ function ensembleSolve(ls, angles) {
   const distances = estimates.map(p => Math.hypot(p.x - med.x, p.z - med.z)).sort((a, b) => a - b);
   const spread = distances[Math.floor(distances.length * 0.9)]; // 90th percentile
   return { ...med, spread };
+}
+
+function runRolls(ls, angles, numRolls, halfRes) {
+  let best = null;
+  for (let roll = 0; roll < numRolls; roll++) {
+    const pos = ensembleSolve(ls, angles);
+    if (!pos) continue;
+    let nearest = Infinity;
+    ls.forEach(r => {
+      const dist = Math.hypot(r.x - pos.x, r.z - pos.z);
+      if (dist < nearest) nearest = dist;
+    });
+    const baseline = nearest * halfRes;
+    const uncertainty = Math.max(baseline, pos.spread || 0);
+    if (!best || uncertainty < best.uncertainty) best = { pos, uncertainty };
+  }
+  return best;
 }
 
 function estimate() {
@@ -173,38 +205,73 @@ function estimate() {
   }
 
   const angles = valid.map(r => ((r.sprite + 17.5) / 32) * 2 * Math.PI);
-
   const halfRes = (2 * Math.PI / 32) / 2;
   const numRolls = Math.max(1, parseInt(document.getElementById('numRolls').value) || 1);
 
-  let best = null;
-  for (let roll = 0; roll < numRolls; roll++) {
-    const pos = ensembleSolve(valid, angles);
-    if (!pos) continue;
-    let nearest = Infinity;
-    valid.forEach(r => {
-      const dist = Math.hypot(r.x - pos.x, r.z - pos.z);
-      if (dist < nearest) nearest = dist;
-    });
-    const baseline = nearest * halfRes;
-    const uncertainty = Math.max(baseline, pos.spread || 0);
-    if (!best || uncertainty < best.uncertainty) best = { pos, uncertainty };
-  }
+  let best = runRolls(valid, angles, numRolls, halfRes);
   if (!best) {
     alert('Lodestone readings are too close to parallel to solve. Use lodestones spread further apart.');
     return;
   }
+
+  // Outlier detection: find readings whose bearing residual is way off the rest
+  // (likely a typo'd sprite or coordinate) and refit without them.
+  function residualsDeg(pos) {
+    return valid.map((r, i) => {
+      const predicted = Math.atan2(r.z - pos.z, r.x - pos.x);
+      return Math.abs(wrap(predicted - angles[i]) * 180 / Math.PI);
+    });
+  }
+  let resid = residualsDeg(best.pos);
+  const sorted = [...resid].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const mad = [...resid].map(v => Math.abs(v - median)).sort((a, b) => a - b)[Math.floor(sorted.length / 2)] || 1;
+  const outlierIdx = [];
+  resid.forEach((v, i) => {
+    if (v > median + Math.max(6 * mad, 15) && valid.length - outlierIdx.length > 3) outlierIdx.push(i);
+  });
+
+  let usedValid = valid, usedAngles = angles;
+  if (outlierIdx.length > 0) {
+    const keep = valid.map((_, i) => i).filter(i => !outlierIdx.includes(i));
+    usedValid = keep.map(i => valid[i]);
+    usedAngles = keep.map(i => angles[i]);
+    const refit = runRolls(usedValid, usedAngles, numRolls, halfRes);
+    if (refit) best = refit;
+  }
+
   const pos = best.pos;
   const px = pos.x, pz = pos.z;
 
   let sumSqDeg = 0;
-  valid.forEach((r, i) => {
+  usedValid.forEach((r, i) => {
     const predicted = Math.atan2(r.z - pz, r.x - px);
-    const diff = wrap(predicted - angles[i]);
+    const diff = wrap(predicted - usedAngles[i]);
     sumSqDeg += (diff * 180 / Math.PI) ** 2;
   });
-  const rmsDeg = Math.sqrt(sumSqDeg / valid.length);
+  const rmsDeg = Math.sqrt(sumSqDeg / usedValid.length);
   const uncertainty = Math.round(best.uncertainty);
+
+  // Geometry warning: bearings too clustered (near-parallel) amplify any error a lot.
+  let maxSpreadDeg = 0;
+  for (let i = 0; i < usedAngles.length; i++) {
+    for (let j = i + 1; j < usedAngles.length; j++) {
+      const d = Math.abs(wrap(usedAngles[i] - usedAngles[j]) * 180 / Math.PI);
+      if (d > maxSpreadDeg) maxSpreadDeg = d;
+    }
+  }
+
+  const warnEl = document.getElementById('outWarning');
+  const warnings = [];
+  if (outlierIdx.length > 0) {
+    warnings.push('Ignored ' + outlierIdx.length + ' reading(s) that didn\'t fit the rest (rows: ' +
+      outlierIdx.map(i => i + 1).join(', ') + '). Check those coordinates/sprites.');
+  }
+  if (maxSpreadDeg < 25) {
+    warnings.push('Lodestone bearings are close to parallel — accuracy is low. Add lodestones from more spread-out directions.');
+  }
+  warnEl.style.display = warnings.length ? 'block' : 'none';
+  warnEl.textContent = warnings.join(' ');
 
   document.getElementById('outX').textContent = px.toFixed(1);
   document.getElementById('outZ').textContent = pz.toFixed(1);
