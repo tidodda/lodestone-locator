@@ -213,3 +213,18 @@ document.getElementById('loadJson').addEventListener('click', () => {
     addRow(item.x, item.z, item.sprite || 0);
   });
 });
+
+const copyJsonBtn = document.getElementById('copyJson');
+copyJsonBtn.addEventListener('click', () => {
+  const data = rows.map(r => ({
+    x: r.x === '' ? null : parseFloat(r.x),
+    z: r.z === '' ? null : parseFloat(r.z),
+    sprite: r.sprite
+  }));
+  const text = JSON.stringify(data, null, 2);
+  document.getElementById('jsonInput').value = text;
+  navigator.clipboard.writeText(text).catch(() => {});
+  const original = copyJsonBtn.textContent;
+  copyJsonBtn.textContent = 'Copied';
+  setTimeout(() => { copyJsonBtn.textContent = original; }, 1200);
+});
