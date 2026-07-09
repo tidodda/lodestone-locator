@@ -1,7 +1,8 @@
 # lodestone position finder
 a browser tool for figuring out roughly where a player is based on lodestone compass bearings.
 
-**by tidodda** — [github](https://github.com/tidodda) [website](https://tidodda.dev)
+**by tidodda**
+[github](https://github.com/tidodda) [website](https://tidodda.dev)
 
 ## how it works
 1. place lodestones at coords you know and link compasses to them
@@ -49,14 +50,14 @@ ran 100 trials with 18 random lodestones across a 200,000 block radius:
 | best case | 501 |
 | worst case | 18,228 |
 
-**what this means:** typical result lands in the low thousands. the 36x spread between best and worst case is purely from how the random lodestone geometry happened to angle around the target each trial—nothing to do with solver noise. tighter, deliberate lodestone placement (evenly spread around target instead of pure random scatter) would shrink both mean and worst-case tail significantly.
+**what this means:** typical result lands in the low thousands. the 36x spread between best and worst case is purely from how the random lodestone geometry happened to angle around the target each trial, nothing to do with solver noise. tighter, deliberate lodestone placement (evenly spread around target instead of pure random scatter) would shrink both mean and worst-case tail significantly.
 
 ---
 
 # technical deep dive
 
 ## the problem
-compasses don't point—they tell you a sector. 32 sprites, each 11.25° wide. you get a bunch of these wedges and lodestone locations, and need to find where the target is.
+compasses don't point, they tell you a sector. 32 sprites, each 11.25° wide. you get a bunch of these wedges and lodestone locations, and need to find where the target is.
 
 complication: data is noisy (bad coords, misread sprite, etc). geometry matters hard. clustered lodestones = huge error even with perfect readings. spread out = tight bounds.
 
@@ -127,7 +128,7 @@ position (x, z), uncertainty, residual, which algorithm won, any warnings, and m
 
 algorithm a gives you the tightest region if data is clean and geometry is nice. every point in the result actually satisfies all constraints.
 
-real data sucks though. misread a sprite, lodestone location off by 10 blocks, geometry too parallel—algorithm b handles that. tries subsets, doesn't care about tightness, just robustness. always finds something.
+real data sucks though. misread a sprite, lodestone location off by 10 blocks, geometry too parallel, algorithm b handles that. tries subsets, doesn't care about tightness, just robustness. always finds something.
 
 both together: a is tight when it works. b is reliable when a breaks. pick whichever is better.
 
@@ -147,4 +148,4 @@ algorithm a is O(n²) because it checks combos, but you'd need 10+ readings to n
 
 ## origin
 
-wedge intersection comes from computational geometry (sutherland-hodgman). weighted least-squares is from surveying. the ensemble thing is RANSAC—you don't know which readings suck so you try many random subsets and let the good ones vote. adapted for compass readings.
+wedge intersection comes from computational geometry (sutherland-hodgman). weighted least-squares is from surveying. the ensemble thing is RANSAC, you don't know which readings suck so you try many random subsets and let the good ones vote. adapted for compass readings.
