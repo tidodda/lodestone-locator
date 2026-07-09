@@ -232,26 +232,37 @@ function wedgeIntersection(ls, angles, halfRes, box) {
   }
   return poly;
 }
-function polygonCentroid(poly) {
-  let a = 0, cx = 0, cz = 0;
-  for (let i = 0; i < poly.length; i++) {
-    const p = poly[i], q = poly[(i + 1) % poly.length];
-    const cross = p.x * q.z - q.x * p.z;
-    a += cross; cx += (p.x + q.x) * cross; cz += (p.z + q.z) * cross;
-  }
-  a *= 0.5;
-  if (Math.abs(a) < 1e-6) {
-    return {
-      x: poly.reduce((s, p) => s + p.x, 0) / poly.length,
-      z: poly.reduce((s, p) => s + p.z, 0) / poly.length
-    };
-  }
-  return { x: cx / (6 * a), z: cz / (6 * a) };
+// Minimum enclosing circle of the feasible polygon. This - not the area
+// centroid - is the point that minimizes the worst-case distance to any point
+// still inside the feasible region, and its radius is the tightest possible
+// honest uncertainty bound (Welzl's algorithm).
+function circleFrom2(a, b) {
+  return { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, r: Math.hypot(a.x - b.x, a.z - b.z) / 2 };
 }
-function maxVertexDist(poly, c) {
-  let m = 0;
-  poly.forEach(p => { const d = Math.hypot(p.x - c.x, p.z - c.z); if (d > m) m = d; });
-  return m;
+function circleFrom3(a, b, c) {
+  const d = 2 * (a.x * (b.z - c.z) + b.x * (c.z - a.z) + c.x * (a.z - b.z));
+  if (Math.abs(d) < 1e-9) return circleFrom2(a, b);
+  const ux = ((a.x**2+a.z**2)*(b.z-c.z) + (b.x**2+b.z**2)*(c.z-a.z) + (c.x**2+c.z**2)*(a.z-b.z)) / d;
+  const uz = ((a.x**2+a.z**2)*(c.x-b.x) + (b.x**2+b.z**2)*(a.x-c.x) + (c.x**2+c.z**2)*(b.x-a.x)) / d;
+  return { x: ux, z: uz, r: Math.hypot(ux - a.x, uz - a.z) };
+}
+function inCircle(p, c) { return Math.hypot(p.x - c.x, p.z - c.z) <= c.r + 1e-6; }
+function minEnclosingCircle(points) {
+  const pts = [...points];
+  for (let i = pts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pts[i], pts[j]] = [pts[j], pts[i]]; }
+  let c = circleFrom2(pts[0], pts[1] || pts[0]);
+  for (let i = 0; i < pts.length; i++) {
+    if (inCircle(pts[i], c)) continue;
+    c = circleFrom2(pts[0], pts[i]);
+    for (let j = 0; j < i; j++) {
+      if (inCircle(pts[j], c)) continue;
+      c = circleFrom2(pts[i], pts[j]);
+      for (let k = 0; k < j; k++) {
+        if (!inCircle(pts[k], c)) c = circleFrom3(pts[i], pts[j], pts[k]);
+      }
+    }
+  }
+  return c;
 }
 function combos(n, k) {
   const res = [];
@@ -283,11 +294,11 @@ function wedgeSolve(ls, angles, halfRes, maxExclude) {
     const subAngles = keep.map(i => angles[i]);
     const poly = wedgeIntersection(subLs, subAngles, halfRes, box);
     if (!poly) return null;
-    const c = polygonCentroid(poly);
+    const circle = minEnclosingCircle(poly);
+    const c = { x: circle.x, z: circle.z };
     const residuals = ls.map((r, i) => Math.abs(wrap(Math.atan2(c.z - r.z, c.x - r.x) - angles[i]) * 180 / Math.PI));
-    const sorted = [...residuals].sort((a, b) => a - b);
-    const p90 = sorted[Math.floor(sorted.length * 0.9)];
-    return { pos: c, uncertainty: maxVertexDist(poly, c), excluded: excl, fitScore: p90 };
+    const worst = Math.max(...residuals);
+    return { pos: c, uncertainty: circle.r, excluded: excl, fitScore: worst };
   }
   let overallBest = null;
   for (let k = 0; k <= maxExclude; k++) {
