@@ -38,6 +38,6 @@ just go to https://lodestone-locator.vercel.app/
   ```
 ## accuracy
 
-this basically comes down to how close your lodestones are to the target. a compass reading only narrows things to about a 5.6 degree wedge, so the further away the lodestone, the bigger the error. scattering lodestones across a huge area gives a rough guess at best, placing them close gives something actually usable. doing it twice, using the first estimate to place a tighter second batch, helps a lot.
+this basically comes down to how close your lodestones are to the target. a compass reading only narrows things to about a 5.6 degree wedge, so the further away the lodestone, the bigger the error.
 
 made by tidodda
