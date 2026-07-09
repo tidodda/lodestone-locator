@@ -7,7 +7,6 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
   <div class="container">
     <h1>Lodestone Position Finder</h1>
 
@@ -16,31 +15,21 @@
       <div id="rows"></div>
       <button id="addRow" class="btn">+ Add lodestone</button>
 
-      <div class="json-box">
-        <label>Paste JSON</label>
+      <details class="json-box">
+        <summary>Paste JSON instead</summary>
         <textarea id="jsonInput" rows="3" placeholder='[{"x": -25000000, "z": 10000000, "sprite": 12}, ...]'></textarea>
         <button id="loadJson" class="btn">Load JSON</button>
-      </div>
-
+      </details>
     </div>
 
     <button id="estimate" class="btn btn-main">Estimate position</button>
 
-    <div class="panel" id="resultPanel" style="display:none">
+    <div class="panel result-panel" id="resultPanel" style="display:none">
       <h2>Result</h2>
       <div class="result-row"><span>Estimated X</span><span id="outX">-</span></div>
       <div class="result-row"><span>Estimated Z</span><span id="outZ">-</span></div>
       <div class="result-row"><span>Rough uncertainty</span><span id="outUncertainty">-</span></div>
       <div class="result-row"><span>Fit residual</span><span id="outResidual">-</span></div>
-      <canvas id="preview" width="600" height="360"></canvas>
-    </div>
-
-    <div class="panel" id="nextRoundPanel" style="display:none">
-      <h2>Next round guidance</h2>
-      <div class="result-row"><span>Typical radius</span><span id="outTypicalRadius">-</span></div>
-      <div class="result-row"><span>Safe radius (covers bad-geometry cases)</span><span id="outSafeRadius">-</span></div>
-      <p class="hint">Place your next batch of lodestones on a ring around the estimate, spread evenly in angle, at roughly the safe radius below. Coordinates only — you'll fill in the sprite after reading each one in-game.</p>
-      <textarea id="nextRoundJson" rows="10" readonly></textarea>
     </div>
 
     <div class="sprite-modal" id="spriteModal">
@@ -53,7 +42,6 @@
 
     <footer>Made by tidodda</footer>
   </div>
-
 <script src="script.js"></script>
 </body>
 </html>
