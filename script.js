@@ -194,6 +194,102 @@ function runRolls(ls, angles, numRolls, halfRes) {
   return best;
 }
 
+// ---- Exact wedge-intersection algorithm ----
+// A compass reading isn't noise around a center angle - it's a hard constraint:
+// "the true bearing lies somewhere in this 11.25 degree sector." Each reading
+// therefore defines a wedge (2 half-planes) the target must lie inside. Intersecting
+// all wedges gives the exact feasible region - tighter and more honest than curve
+// fitting through sector centers, and its size is a real uncertainty bound.
+function clipHalfplane(poly, nx, nz, ax, az) {
+  if (poly.length === 0) return poly;
+  const val = p => nx * (p.x - ax) + nz * (p.z - az);
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const cur = poly[i], nxt = poly[(i + 1) % poly.length];
+    const vc = val(cur), vn = val(nxt);
+    if (vc >= 0) out.push(cur);
+    if ((vc >= 0) !== (vn >= 0)) {
+      const t = vc / (vc - vn);
+      out.push({ x: cur.x + t * (nxt.x - cur.x), z: cur.z + t * (nxt.z - cur.z) });
+    }
+  }
+  return out;
+}
+function wedgeIntersection(ls, angles, halfRes, box) {
+  let poly = [
+    { x: box.minX, z: box.minZ }, { x: box.maxX, z: box.minZ },
+    { x: box.maxX, z: box.maxZ }, { x: box.minX, z: box.maxZ }
+  ];
+  for (let i = 0; i < ls.length; i++) {
+    const r = ls[i], center = angles[i];
+    const start = center - halfRes, end = center + halfRes;
+    const n1x = -Math.sin(start), n1z = Math.cos(start);
+    const n2x = Math.sin(end), n2z = -Math.cos(end);
+    poly = clipHalfplane(poly, n1x, n1z, r.x, r.z);
+    if (poly.length === 0) return null;
+    poly = clipHalfplane(poly, n2x, n2z, r.x, r.z);
+    if (poly.length === 0) return null;
+  }
+  return poly;
+}
+function polygonCentroid(poly) {
+  let a = 0, cx = 0, cz = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i], q = poly[(i + 1) % poly.length];
+    const cross = p.x * q.z - q.x * p.z;
+    a += cross; cx += (p.x + q.x) * cross; cz += (p.z + q.z) * cross;
+  }
+  a *= 0.5;
+  if (Math.abs(a) < 1e-6) {
+    return {
+      x: poly.reduce((s, p) => s + p.x, 0) / poly.length,
+      z: poly.reduce((s, p) => s + p.z, 0) / poly.length
+    };
+  }
+  return { x: cx / (6 * a), z: cz / (6 * a) };
+}
+function maxVertexDist(poly, c) {
+  let m = 0;
+  poly.forEach(p => { const d = Math.hypot(p.x - c.x, p.z - c.z); if (d > m) m = d; });
+  return m;
+}
+function combos(n, k) {
+  const res = [];
+  (function rec(start, chosen) {
+    if (chosen.length === k) { res.push([...chosen]); return; }
+    for (let i = start; i < n; i++) { chosen.push(i); rec(i + 1, chosen); chosen.pop(); }
+  })(0, []);
+  return res;
+}
+// Finds the exact feasible region, dropping the fewest possible readings to
+// resolve any inconsistency (a reading that doesn't fit is either a typo or
+// landed exactly on a sector edge).
+function wedgeSolve(ls, angles, halfRes, maxExclude) {
+  const xs = ls.map(r => r.x), zs = ls.map(r => r.z);
+  const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 10000);
+  const pad = span * 20;
+  const box = {
+    minX: Math.min(...xs) - pad, maxX: Math.max(...xs) + pad,
+    minZ: Math.min(...zs) - pad, maxZ: Math.max(...zs) + pad
+  };
+  for (let k = 0; k <= maxExclude; k++) {
+    if (ls.length - k < 3) break;
+    let bestForK = null;
+    combos(ls.length, k).forEach(excl => {
+      const keep = ls.map((_, i) => i).filter(i => !excl.includes(i));
+      const subLs = keep.map(i => ls[i]);
+      const subAngles = keep.map(i => angles[i]);
+      const poly = wedgeIntersection(subLs, subAngles, halfRes, box);
+      if (!poly) return;
+      const c = polygonCentroid(poly);
+      const unc = maxVertexDist(poly, c);
+      if (!bestForK || unc < bestForK.unc) bestForK = { pos: c, uncertainty: unc, excluded: excl };
+    });
+    if (bestForK) return bestForK;
+  }
+  return null;
+}
+
 function estimate() {
   const valid = rows
     .map(r => ({ x: parseFloat(r.x), z: parseFloat(r.z), sprite: r.sprite }))
@@ -208,40 +304,54 @@ function estimate() {
   const halfRes = (2 * Math.PI / 32) / 2;
   const numRolls = Math.max(1, parseInt(document.getElementById('numRolls').value) || 1);
 
-  let best = runRolls(valid, angles, numRolls, halfRes);
-  if (!best) {
+  // Algorithm A: exact wedge intersection (tightest possible, but needs >=3
+  // lodestones and can fail to find a feasible region if too many are noisy)
+  let candidateA = null;
+  if (valid.length >= 3) {
+    const maxExclude = Math.min(2, valid.length - 3);
+    const w = wedgeSolve(valid, angles, halfRes, maxExclude);
+    if (w) candidateA = { pos: w.pos, uncertainty: w.uncertainty, excluded: w.excluded, method: 'exact intersection' };
+  }
+
+  // Algorithm B: weighted least-squares over random ensembles (always available,
+  // degrades gracefully, its own residual-based outlier pass)
+  let candidateB = null;
+  {
+    let best = runRolls(valid, angles, numRolls, halfRes);
+    if (best) {
+      function residualsDeg(pos) {
+        return valid.map((r, i) => {
+          const predicted = Math.atan2(r.z - pos.z, r.x - pos.x);
+          return Math.abs(wrap(predicted - angles[i]) * 180 / Math.PI);
+        });
+      }
+      const resid = residualsDeg(best.pos);
+      const sorted = [...resid].sort((a, b) => a - b);
+      const median = sorted[Math.floor(sorted.length / 2)];
+      const mad = [...resid].map(v => Math.abs(v - median)).sort((a, b) => a - b)[Math.floor(sorted.length / 2)] || 1;
+      const outlierIdx = [];
+      resid.forEach((v, i) => {
+        if (v > median + Math.max(6 * mad, 15) && valid.length - outlierIdx.length > 3) outlierIdx.push(i);
+      });
+      if (outlierIdx.length > 0) {
+        const keep = valid.map((_, i) => i).filter(i => !outlierIdx.includes(i));
+        const refit = runRolls(keep.map(i => valid[i]), keep.map(i => angles[i]), numRolls, halfRes);
+        if (refit) best = refit;
+      }
+      candidateB = { pos: best.pos, uncertainty: best.uncertainty, excluded: outlierIdx, method: 'weighted least-squares (ensemble)' };
+    }
+  }
+
+  if (!candidateA && !candidateB) {
     alert('Lodestone readings are too close to parallel to solve. Use lodestones spread further apart.');
     return;
   }
+  const chosen = (candidateA && (!candidateB || candidateA.uncertainty <= candidateB.uncertainty)) ? candidateA : candidateB;
 
-  // Outlier detection: find readings whose bearing residual is way off the rest
-  // (likely a typo'd sprite or coordinate) and refit without them.
-  function residualsDeg(pos) {
-    return valid.map((r, i) => {
-      const predicted = Math.atan2(r.z - pos.z, r.x - pos.x);
-      return Math.abs(wrap(predicted - angles[i]) * 180 / Math.PI);
-    });
-  }
-  let resid = residualsDeg(best.pos);
-  const sorted = [...resid].sort((a, b) => a - b);
-  const median = sorted[Math.floor(sorted.length / 2)];
-  const mad = [...resid].map(v => Math.abs(v - median)).sort((a, b) => a - b)[Math.floor(sorted.length / 2)] || 1;
-  const outlierIdx = [];
-  resid.forEach((v, i) => {
-    if (v > median + Math.max(6 * mad, 15) && valid.length - outlierIdx.length > 3) outlierIdx.push(i);
-  });
-
-  let usedValid = valid, usedAngles = angles;
-  if (outlierIdx.length > 0) {
-    const keep = valid.map((_, i) => i).filter(i => !outlierIdx.includes(i));
-    usedValid = keep.map(i => valid[i]);
-    usedAngles = keep.map(i => angles[i]);
-    const refit = runRolls(usedValid, usedAngles, numRolls, halfRes);
-    if (refit) best = refit;
-  }
-
-  const pos = best.pos;
-  const px = pos.x, pz = pos.z;
+  const usedIdx = valid.map((_, i) => i).filter(i => !chosen.excluded.includes(i));
+  const usedValid = usedIdx.map(i => valid[i]);
+  const usedAngles = usedIdx.map(i => angles[i]);
+  const px = chosen.pos.x, pz = chosen.pos.z;
 
   let sumSqDeg = 0;
   usedValid.forEach((r, i) => {
@@ -250,7 +360,7 @@ function estimate() {
     sumSqDeg += (diff * 180 / Math.PI) ** 2;
   });
   const rmsDeg = Math.sqrt(sumSqDeg / usedValid.length);
-  const uncertainty = Math.round(best.uncertainty);
+  const uncertainty = Math.round(chosen.uncertainty);
 
   // Geometry warning: bearings too clustered (near-parallel) amplify any error a lot.
   let maxSpreadDeg = 0;
@@ -263,9 +373,9 @@ function estimate() {
 
   const warnEl = document.getElementById('outWarning');
   const warnings = [];
-  if (outlierIdx.length > 0) {
-    warnings.push('Ignored ' + outlierIdx.length + ' reading(s) that didn\'t fit the rest (rows: ' +
-      outlierIdx.map(i => i + 1).join(', ') + '). Check those coordinates/sprites.');
+  if (chosen.excluded.length > 0) {
+    warnings.push('Ignored ' + chosen.excluded.length + ' reading(s) that didn\'t fit the rest (rows: ' +
+      chosen.excluded.map(i => i + 1).join(', ') + '). Check those coordinates/sprites.');
   }
   if (maxSpreadDeg < 25) {
     warnings.push('Lodestone bearings are close to parallel — accuracy is low. Add lodestones from more spread-out directions.');
@@ -277,6 +387,7 @@ function estimate() {
   document.getElementById('outZ').textContent = pz.toFixed(1);
   document.getElementById('outUncertainty').textContent = '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
+  document.getElementById('outMethod').textContent = chosen.method;
   resultPanel.style.display = 'block';
 }
 
