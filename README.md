@@ -131,7 +131,7 @@ real data sucks though. misread a sprite, lodestone location off by 10 blocks, g
 
 both together: a is tight when it works. b is reliable when a breaks. pick whichever is better.
 
-## gotchas
+## unexpected problems
 
 **clustered readings:** if all bearings come from one direction, even small errors blow up the position error. the tool flags this when spread < 25°.
 
