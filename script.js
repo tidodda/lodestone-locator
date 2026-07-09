@@ -402,11 +402,11 @@ function estimate() {
   document.getElementById('outUncertainty').textContent = '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
   document.getElementById('outMethod').textContent = chosen.method;
-  renderMap(usedValid, chosen.pos, chosen.poly || null);
+  renderMap(usedValid, usedAngles, halfRes, chosen.pos, chosen.poly || null);
   resultPanel.style.display = 'block';
 }
 
-function renderMap(ls, pos, poly) {
+function renderMap(ls, angles, halfRes, pos, poly) {
   const overviewSvg = document.getElementById('resultMap');
   const detailSvg = document.getElementById('resultMapDetail');
   const overviewLabel = document.getElementById('overviewLabel');
@@ -419,18 +419,32 @@ function renderMap(ls, pos, poly) {
     return;
   }
 
-  function drawSvg(el, boundsPts, drawLodestones) {
+  function computeBox(boundsPts) {
     const xs = boundsPts.map(p => p.x), zs = boundsPts.map(p => p.z);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
     const minZ = Math.min(...zs), maxZ = Math.max(...zs);
     const spanX = Math.max(maxX - minX, 1), spanZ = Math.max(maxZ - minZ, 1);
     const pad = Math.max(spanX, spanZ) * 0.25;
+    return { minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad };
+  }
+
+  function drawSvg(el, boundsPts, drawLodestones, drawWedges) {
+    const box = computeBox(boundsPts);
     const w = 400, h = 400;
-    const scale = Math.min(w / (spanX + 2 * pad), h / (spanZ + 2 * pad));
-    const ox = minX - pad, oz = minZ - pad;
-    const toSvg = p => ({ x: (p.x - ox) * scale, y: (p.z - oz) * scale });
+    const scale = Math.min(w / (box.maxX - box.minX), h / (box.maxZ - box.minZ));
+    const toSvg = p => ({ x: (p.x - box.minX) * scale, y: (p.z - box.minZ) * scale });
 
     let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg">';
+    // each lodestone's own bearing wedge, clipped to the visible area - darker
+    // overlap = where more readings agree, which is how the final region forms
+    if (drawWedges) {
+      ls.forEach((r, i) => {
+        const wedgePoly = wedgeIntersection([r], [angles[i]], halfRes, box);
+        if (!wedgePoly) return;
+        const pts = wedgePoly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
+        s += '<polygon points="' + pts + '" fill="#e0a030" fill-opacity="0.07" stroke="#e0a030" stroke-opacity="0.35" stroke-width="1"/>';
+      });
+    }
     const polyPts = poly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
     s += '<polygon points="' + polyPts + '" fill="#3a5a8a" fill-opacity="0.45" stroke="#6a8ac0" stroke-width="2"/>';
     if (drawLodestones) {
@@ -446,11 +460,11 @@ function renderMap(ls, pos, poly) {
     el.style.display = 'block';
   }
 
-  // overview: full context (lodestones + polygon, polygon may render as a dot here)
-  drawSvg(overviewSvg, [...ls, ...poly, pos], true);
+  // overview: full context - lodestones, their individual wedges, and the final polygon
+  drawSvg(overviewSvg, [...ls, ...poly, pos], true, true);
   overviewLabel.style.display = 'block';
-  // detail: zoomed tightly to the polygon itself so its actual shape is visible
-  drawSvg(detailSvg, [...poly, pos], false);
+  // detail: zoomed tightly to the polygon itself so its exact shape is visible
+  drawSvg(detailSvg, [...poly, pos], false, false);
   detailLabel.style.display = 'block';
 
   vertBox.style.display = 'block';
