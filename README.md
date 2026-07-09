@@ -37,11 +37,11 @@ just go to https://lodestone-locator.vercel.app/
 
 ## accuracy
 
-this basically comes down to how close your lodestones are to the target. a compass reading only narrows things to about a 5.6 degree wedge, so the further away the lodestone, the bigger the error.
+comes down mostly to how close your lodestones are to the target. a compass reading only narrows things to about a 5.6 degree wedge, so the farther the lodestone, the bigger the error.
 
 ### validation results
 
-ran 100 trials with 18 random lodestones across a 200,000 block radius:
+ran 100 trials, 18 random lodestones scattered across a 200,000 block radius:
 
 | metric | blocks |
 |---|---|
@@ -50,102 +50,78 @@ ran 100 trials with 18 random lodestones across a 200,000 block radius:
 | best case | 501 |
 | worst case | 18,228 |
 
-**what this means:** typical result lands in the low thousands. the 36x spread between best and worst case is purely from how the random lodestone geometry happened to angle around the target each trial, nothing to do with solver noise. tighter, deliberate lodestone placement (evenly spread around target instead of pure random scatter) would shrink both mean and worst-case tail significantly.
+typical result lands in the low thousands. the 36x gap between best and worst case is just how the lodestone geometry happened to fall relative to the target each trial, not solver noise. placing lodestones deliberately, spread evenly around the target instead of random scatter, shrinks both the mean and the worst case a lot.
 
 ---
 
 # technical deep dive
 
 ## the problem
-compasses don't point, they tell you a sector. 32 sprites, each 11.25° wide. you get a bunch of these wedges and lodestone locations, and need to find where the target is.
+compasses don't point, they tell you a sector. 32 sprites, each 11.25° wide. you end up with a pile of wedges and lodestone locations and need to find where they overlap.
 
-complication: data is noisy (bad coords, misread sprite, etc). geometry matters hard. clustered lodestones = huge error even with perfect readings. spread out = tight bounds.
+the data's noisy too. bad coords, misread sprites, that kind of thing. and geometry matters a lot. clustered lodestones give a huge error even with perfect readings, spread out and the bounds get tight fast.
 
-## how it works
-
-### sprites to angles
+## sprites to angles
 compass sprites 0-31 map directly to angles:
 ```
 angle = ((s + 17.5) / 32) * 2π
 ```
+sprite 0 points north, 8 east, 16 south, 24 west. the 17.5 offset centers each sprite on its angle. each sprite covers 11.25° of actual bearing though, so a reading gives you a wedge, not a line. that's really two constraints, a left edge and a right edge.
 
-sprite 0 points north, 8 points east, 16 south, 24 west. the 17.5 offset centers each sprite on its angle. but compasses aren't precise—each sprite covers 11.25°. so a reading narrows it down: the target is somewhere in that wedge. mathematically, it must satisfy two constraints (the wedge's left and right boundaries).
+## algorithm a: exact wedge intersection
 
-### algorithm a: exact wedge intersection
+the polygon approach. stack every constraint and see where they all overlap.
 
-polygonal approach. stack all constraints and find where they all overlap.
+start with a big search box around your lodestones. for each reading, clip the box against that bearing's wedge using sutherland-hodgman polygon clipping, walking the edges and keeping the side that satisfies the constraint. if the polygon disappears entirely, the readings contradict each other. otherwise the polygon's center is your position, and the farthest vertex from center gives the uncertainty.
 
-how it works:
-1. big search box around your lodestones
-2. for each lodestone reading, clip that box against the bearing wedge. sutherland-hodgman polygon clipping: walk edges, keep the right side, cut away the wrong side
-3. if the polygon vanishes, readings contradict each other
-4. otherwise, polygon center = your position. max distance to a vertex = uncertainty
+when clipping fails, it starts dropping readings. drop none, then 1, then 2, re-clipping each combo and scoring by residual error across all the original readings, including the ones left out of that particular fit. best combo wins, and it only drops more if that gets a 2°+ improvement.
 
-if clipping fails, try dropping readings. test: drop nothing, drop 1, drop 2, etc. re-clip each combo and score by residual error across all original readings (even excluded ones). use the combo with the best fit. only jump to dropping more if you get > 2° improvement.
+works great with 3+ readings spread at different angles. breaks down when readings are nearly parallel or too contradictory to reconcile.
 
-works great with 3+ readings spread at different angles. breaks when readings are nearly parallel or too contradictory to salvage.
+## algorithm b: weighted least-squares with ensembles
 
-### algorithm b: weighted least-squares with ensembles
+more forgiving. instead of solving for an exact region, each reading becomes a linear equation, target at (x, z), lodestone at (lx, lz), bearing θ:
+```
+sin(θ)·x - cos(θ)·z = sin(θ)·lx - cos(θ)·lz
+```
+solved as a matrix system. closer lodestones get weighted more heavily since their angular error matters more, then it's re-solved a few times.
 
-the forgiving approach. instead of exact regions, fit a position by minimizing angular error, weight closer lodestones higher (angular error matters more up close), and try 60 random subsets instead of betting everything on one fit.
+instead of trusting one fit, it takes 60 random subsets of the readings, up to 6 each, solves every one, and finds the point closest to all 60, the geometric median. that holds up against outliers much better than a plain average. bad readings get flagged by checking residuals against median + 6·MAD, and if outliers show up but 3+ good readings remain, it re-runs on just those.
 
-how it works:
-1. each reading is a linear equation. target at (x, z), lodestone at (lx, lz), bearing θ:
-   ```
-   sin(θ)·x - cos(θ)·z = sin(θ)·lx - cos(θ)·lz
-   ```
-   solve the matrix system
+uncertainty is how spread out the 60 estimates end up. tight cluster means good geometry, scattered means noisy data. it always produces something, messy data or bad geometry or outliers included, though it won't be as tight as algorithm a when the input is clean.
 
-2. distance to each lodestone determines weight (weight = 1/distance). re-solve 3 times
+## picking a winner
 
-3. take random subsets (≤6 readings each). solve each one. collect 60 answers
+both algorithms run every time, though algorithm a skips itself under 3 readings. whichever reports the smaller uncertainty wins. if only one produced a result, that one's used. if both fail, the readings just don't work together.
 
-4. find the point closest to all 60 (geometric median). this resists outliers better than averaging
+## the numbers you get
 
-5. detect bad readings: check residuals, flag anything > median + 6·MAD. if you have outliers and still have 3+ good ones, re-run on the good subset
+for whichever position won, using the readings that were kept:
 
-6. uncertainty = spread of your 60 estimates. tight = good geometry, scattered = noisy
+- **RMS residual**: average bearing error, shows whether the readings agree with each other
+- **bearing spread**: biggest angle gap between any two readings, under 25° usually means bad geometry
+- **uncertainty radius**: rough error bound in blocks
 
-handles messy data, bad geometry, outliers. always produces something. won't be as tight as algorithm a if data is clean.
-
-### pick a winner
-
-both algorithms ran. algorithm a skips if you have < 3 readings. compare their uncertainties. pick the smaller one. if only one worked, use it. if both fail, your readings don't work together.
-
-### final numbers
-
-using the chosen position and kept readings:
-
-- **RMS residual:** average bearing error. tells you if readings agree
-- **bearing spread:** biggest angle difference between any two readings. < 25° means bad geometry
-- **uncertainty radius:** rough error bound in blocks
-
-### output
-
-position (x, z), uncertainty, residual, which algorithm won, any warnings, and maps of the region
+plus the position itself, which algorithm won, any warnings, and a map of the region.
 
 ## why both algorithms
 
-algorithm a gives you the tightest region if data is clean and geometry is nice. every point in the result actually satisfies all constraints.
+algorithm a gives the tightest region when the data's clean and the geometry's decent, every point in its result satisfies all the constraints. but real data is messy: a misread sprite, a lodestone off by 10 blocks, readings too parallel to pin anything down. algorithm b doesn't care about being tight, it cares about not falling over. a wins when it can, b covers for it when it can't.
 
-real data sucks though. misread a sprite, lodestone location off by 10 blocks, geometry too parallel, algorithm b handles that. tries subsets, doesn't care about tightness, just robustness. always finds something.
+## known failure modes
 
-both together: a is tight when it works. b is reliable when a breaks. pick whichever is better.
+clustered readings are the big one. if every bearing comes from roughly the same direction, even small errors blow up the position error. flagged when spread is under 25°.
 
-## unexpected problems
+only 2 lodestones is technically enough, two wedges do define a point, but it's fragile. use more when you can.
 
-**clustered readings:** if all bearings come from one direction, even small errors blow up the position error. the tool flags this when spread < 25°.
+contradictory readings get handled differently by each algorithm. a tries dropping 1-2 to make things consistent, b just accepts the scatter. if both give up, something in the data is actually broken, worth double checking lodestone coords and sprite reads.
 
-**only 2 lodestones:** technically works (two wedges define a point). fragile though. use more if possible.
-
-**contradictory readings:** algorithm a tries dropping 1-2 to make them work. algorithm b accepts scatter. both fail? your data is broken. check lodestone coords and sprite reads.
-
-**colinear lodestones:** all on a line from you means tight error perpendicular to the line, huge error along it. the geometry warning catches it.
+colinear lodestones, all roughly on a line from you, leave error tight perpendicular to that line but huge along it. same geometry warning catches it.
 
 ## speed
 
-algorithm a is O(n²) because it checks combos, but you'd need 10+ readings to notice. algorithm b runs 60 random subsets in parallel-ish. total: under 100ms.
+algorithm a is O(n²) since it checks combinations of dropped readings, but you'd need 10+ readings before that's noticeable. algorithm b's 60 subsets run essentially in parallel. all told, under 100ms.
 
-## origin
+## where this comes from
 
-wedge intersection comes from computational geometry (sutherland-hodgman). weighted least-squares is from surveying. the ensemble thing is RANSAC, you don't know which readings suck so you try many random subsets and let the good ones vote. adapted for compass readings.
+wedge intersection is standard computational geometry, sutherland-hodgman clipping. weighted least-squares is straight out of surveying. the random subsets idea is basically RANSAC, you don't know in advance which readings are bad, so you try a bunch of random subsets and let the good ones outvote the bad. adapted here for compass bearings instead of the usual point-cloud fitting.
