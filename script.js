@@ -262,8 +262,13 @@ function combos(n, k) {
   return res;
 }
 // Finds the exact feasible region, dropping the fewest possible readings to
-// resolve any inconsistency (a reading that doesn't fit is either a typo or
-// landed exactly on a sector edge).
+// resolve any inconsistency. Candidates are scored by how well the resulting
+// position fits ALL readings (90th-percentile bearing residual across the full
+// set), not by how small the resulting region is - a tiny region can arise from
+// a coincidental near-parallel overlap between the WRONG readings and be totally
+// wrong, even though it looks maximally "confident". Extra exclusions are only
+// accepted if they meaningfully improve that full-set fit (avoids overfitting
+// by discarding valid readings just to shrink the region).
 function wedgeSolve(ls, angles, halfRes, maxExclude) {
   const xs = ls.map(r => r.x), zs = ls.map(r => r.z);
   const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 10000);
@@ -272,22 +277,32 @@ function wedgeSolve(ls, angles, halfRes, maxExclude) {
     minX: Math.min(...xs) - pad, maxX: Math.max(...xs) + pad,
     minZ: Math.min(...zs) - pad, maxZ: Math.max(...zs) + pad
   };
+  function scoreCandidate(excl) {
+    const keep = ls.map((_, i) => i).filter(i => !excl.includes(i));
+    const subLs = keep.map(i => ls[i]);
+    const subAngles = keep.map(i => angles[i]);
+    const poly = wedgeIntersection(subLs, subAngles, halfRes, box);
+    if (!poly) return null;
+    const c = polygonCentroid(poly);
+    const residuals = ls.map((r, i) => Math.abs(wrap(Math.atan2(c.z - r.z, c.x - r.x) - angles[i]) * 180 / Math.PI));
+    const sorted = [...residuals].sort((a, b) => a - b);
+    const p90 = sorted[Math.floor(sorted.length * 0.9)];
+    return { pos: c, uncertainty: maxVertexDist(poly, c), excluded: excl, fitScore: p90 };
+  }
+  let overallBest = null;
   for (let k = 0; k <= maxExclude; k++) {
     if (ls.length - k < 3) break;
     let bestForK = null;
     combos(ls.length, k).forEach(excl => {
-      const keep = ls.map((_, i) => i).filter(i => !excl.includes(i));
-      const subLs = keep.map(i => ls[i]);
-      const subAngles = keep.map(i => angles[i]);
-      const poly = wedgeIntersection(subLs, subAngles, halfRes, box);
-      if (!poly) return;
-      const c = polygonCentroid(poly);
-      const unc = maxVertexDist(poly, c);
-      if (!bestForK || unc < bestForK.unc) bestForK = { pos: c, uncertainty: unc, excluded: excl };
+      const cand = scoreCandidate(excl);
+      if (cand && (!bestForK || cand.fitScore < bestForK.fitScore)) bestForK = cand;
     });
-    if (bestForK) return bestForK;
+    if (!bestForK) continue;
+    // only take on more exclusions if they clearly improve the fit
+    if (!overallBest || bestForK.fitScore < overallBest.fitScore - 2) overallBest = bestForK;
+    else break;
   }
-  return null;
+  return overallBest;
 }
 
 function estimate() {
