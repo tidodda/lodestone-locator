@@ -147,6 +147,25 @@ h1 {
   text-align: left;
 }
 
+.result-map {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin: 12px auto 0;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 6px;
+}
+
+.poly-vertices {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #909090;
+  text-align: left;
+  word-break: break-word;
+}
+
 .result-panel {
   text-align: center;
 }
