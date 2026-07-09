@@ -11,7 +11,6 @@ const ctx = canvas.getContext('2d');
 let rows = [];
 let nextId = 0;
 let modalTargetRowId = null;
-let spawnSprite = 0;
 
 function spritePath(i) {
   return 'compass_textures/compass_' + String(i).padStart(2, '0') + '.png';
@@ -81,13 +80,6 @@ function openSpriteModal(rowId) {
 spriteGrid.addEventListener('click', e => {
   const opt = e.target.closest('.sprite-option');
   if (!opt) return;
-  if (modalTargetRowId === 'spawn') {
-    spawnSprite = parseInt(opt.dataset.sprite);
-    document.getElementById('spawnSpriteImg').src = spritePath(spawnSprite);
-    document.getElementById('spawnSpriteLabel').textContent = '#' + String(spawnSprite).padStart(2, '0');
-    spriteModal.classList.remove('open');
-    return;
-  }
   const row = rows.find(r => r.id === modalTargetRowId);
   row.sprite = parseInt(opt.dataset.sprite);
   spriteModal.classList.remove('open');
@@ -166,9 +158,6 @@ function estimate() {
   const valid = rows
     .map(r => ({ x: parseFloat(r.x), z: parseFloat(r.z), sprite: r.sprite }))
     .filter(r => Number.isFinite(r.x) && Number.isFinite(r.z));
-
-  const spawnEntry = getSpawnEntry();
-  if (spawnEntry) valid.push(spawnEntry);
 
   if (valid.length < 2) {
     alert('Add at least 2 lodestones with coordinates.');
@@ -299,22 +288,6 @@ function drawPreview(lodestones, px, pz) {
   ctx.fill();
   ctx.fillStyle = '#ffd24a';
   ctx.fillText('estimate', est.x + 10, est.y - 8);
-}
-
-document.getElementById('useSpawn').addEventListener('change', e => {
-  document.getElementById('spawnRow').style.display = e.target.checked ? 'flex' : 'none';
-});
-
-document.getElementById('spawnSpritePicker').addEventListener('click', () => {
-  openSpriteModal('spawn');
-});
-
-function getSpawnEntry() {
-  if (!document.getElementById('useSpawn').checked) return null;
-  const x = parseFloat(document.getElementById('spawnX').value);
-  const z = parseFloat(document.getElementById('spawnZ').value);
-  if (!Number.isFinite(x) || !Number.isFinite(z)) return null;
-  return { x, z, sprite: spawnSprite };
 }
 
 estimateBtn.addEventListener('click', estimate);
