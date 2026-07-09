@@ -4,11 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lodestone Position Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <h1>Lodestone Position Finder</h1>
+    <header class="masthead">
+      <svg class="mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="18" stroke="currentColor" stroke-width="1.2"/>
+        <circle cx="20" cy="20" r="1.6" fill="currentColor"/>
+        <path d="M20 4 L23 18 L20 20 L17 18 Z" fill="currentColor"/>
+        <path d="M20 36 L20 24" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M4 20 L16 20" stroke="currentColor" stroke-width="1.2"/>
+        <path d="M36 20 L24 20" stroke="currentColor" stroke-width="1.2"/>
+      </svg>
+      <div class="eyebrow">Triangulation Tool</div>
+      <h1>Lodestone Position Finder</h1>
+    </header>
 
     <div class="panel">
       <h2>Lodestones</h2>
@@ -16,9 +30,12 @@
       <button id="addRow" class="btn">+ Add lodestone</button>
 
       <details class="json-box">
-        <summary>Paste JSON instead</summary>
+        <summary>JSON</summary>
         <textarea id="jsonInput" rows="3" placeholder='[{"x": -25000000, "z": 10000000, "sprite": 12}, ...]'></textarea>
-        <button id="loadJson" class="btn">Load JSON</button>
+        <div class="json-actions">
+          <button id="loadJson" class="btn">Load</button>
+          <button id="copyJson" class="btn">Copy current</button>
+        </div>
       </details>
     </div>
 
@@ -26,8 +43,10 @@
 
     <div class="panel result-panel" id="resultPanel" style="display:none">
       <h2>Result</h2>
-      <div class="result-row"><span>Estimated X</span><span id="outX">-</span></div>
-      <div class="result-row"><span>Estimated Z</span><span id="outZ">-</span></div>
+      <div class="readout">
+        <div class="readout-item"><span class="readout-label">X</span><span class="readout-value" id="outX">-</span></div>
+        <div class="readout-item"><span class="readout-label">Z</span><span class="readout-value" id="outZ">-</span></div>
+      </div>
       <div class="result-row"><span>Rough uncertainty</span><span id="outUncertainty">-</span></div>
       <div class="result-row"><span>Fit residual</span><span id="outResidual">-</span></div>
     </div>
