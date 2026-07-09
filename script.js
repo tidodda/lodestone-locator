@@ -131,7 +131,10 @@ function geometricMedian(points, iters) {
 }
 
 function ensembleSolve(ls, angles) {
-  if (ls.length < 4) return solvePosition(ls, angles);
+  if (ls.length < 4) {
+    const pos = solvePosition(ls, angles);
+    return pos ? { ...pos, spread: 0 } : null;
+  }
 
   const subsetSize = Math.min(6, ls.length - 1);
   const numSubsets = 60;
@@ -148,8 +151,15 @@ function ensembleSolve(ls, angles) {
     const pos = solvePosition(subLs, subAngles);
     if (pos) estimates.push(pos);
   }
-  if (estimates.length === 0) return solvePosition(ls, angles);
-  return geometricMedian(estimates, 40);
+  if (estimates.length === 0) {
+    const pos = solvePosition(ls, angles);
+    return pos ? { ...pos, spread: 0 } : null;
+  }
+  const med = geometricMedian(estimates, 40);
+  // spread of the ensemble = real uncertainty, including bad-geometry amplification
+  const distances = estimates.map(p => Math.hypot(p.x - med.x, p.z - med.z)).sort((a, b) => a - b);
+  const spread = distances[Math.floor(distances.length * 0.9)]; // 90th percentile
+  return { ...med, spread };
 }
 
 function estimate() {
@@ -172,18 +182,24 @@ function estimate() {
   const px = pos.x, pz = pos.z;
 
   let sumSqDeg = 0;
-  let nearest = Infinity;
   valid.forEach((r, i) => {
     const predicted = Math.atan2(r.z - pz, r.x - px);
     const diff = wrap(predicted - angles[i]);
     sumSqDeg += (diff * 180 / Math.PI) ** 2;
-    const dist = Math.hypot(r.x - px, r.z - pz);
-    if (dist < nearest) nearest = dist;
   });
   const rmsDeg = Math.sqrt(sumSqDeg / valid.length);
 
+  // baseline resolution error (best case, well-conditioned geometry)
   const halfRes = (2 * Math.PI / 32) / 2;
-  const uncertainty = Math.round(nearest * halfRes);
+  let nearest = Infinity;
+  valid.forEach(r => {
+    const dist = Math.hypot(r.x - px, r.z - pz);
+    if (dist < nearest) nearest = dist;
+  });
+  const baseline = nearest * halfRes;
+  // real uncertainty: worse of baseline resolution and observed ensemble spread
+  // (spread captures amplification from near-parallel/ill-conditioned bearings)
+  const uncertainty = Math.round(Math.max(baseline, pos.spread || 0));
 
   document.getElementById('outX').textContent = px.toFixed(1);
   document.getElementById('outZ').textContent = pz.toFixed(1);
