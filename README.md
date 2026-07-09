@@ -1,6 +1,8 @@
 # lodestone position finder
 a browser tool for figuring out roughly where a player is based on lodestone compass bearings.
 
+**by tidodda** — [github](https://github.com/tidodda) [website](https://tidodda.dev)
+
 ## how it works
 1. place lodestones at coords you know and link compasses to them
 2. get the compasses into the target's inventory somehow
@@ -33,9 +35,21 @@ just go to https://lodestone-locator.vercel.app/
   ```
 
 ## accuracy
+
 this basically comes down to how close your lodestones are to the target. a compass reading only narrows things to about a 5.6 degree wedge, so the further away the lodestone, the bigger the error.
 
-made by tidodda
+### validation results
+
+ran 100 trials with 18 random lodestones across a 200,000 block radius:
+
+| metric | blocks |
+|---|---|
+| mean error | 5,107 |
+| median error | 4,568 |
+| best case | 501 |
+| worst case | 18,228 |
+
+**what this means:** typical result lands in the low thousands. the 36x spread between best and worst case is purely from how the random lodestone geometry happened to angle around the target each trial—nothing to do with solver noise. tighter, deliberate lodestone placement (evenly spread around target instead of pure random scatter) would shrink both mean and worst-case tail significantly.
 
 ---
 
