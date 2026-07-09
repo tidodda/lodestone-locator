@@ -174,11 +174,27 @@ function estimate() {
 
   const angles = valid.map(r => ((r.sprite + 17.5) / 32) * 2 * Math.PI);
 
-  const pos = ensembleSolve(valid, angles);
-  if (!pos) {
+  const halfRes = (2 * Math.PI / 32) / 2;
+  const numRolls = Math.max(1, parseInt(document.getElementById('numRolls').value) || 1);
+
+  let best = null;
+  for (let roll = 0; roll < numRolls; roll++) {
+    const pos = ensembleSolve(valid, angles);
+    if (!pos) continue;
+    let nearest = Infinity;
+    valid.forEach(r => {
+      const dist = Math.hypot(r.x - pos.x, r.z - pos.z);
+      if (dist < nearest) nearest = dist;
+    });
+    const baseline = nearest * halfRes;
+    const uncertainty = Math.max(baseline, pos.spread || 0);
+    if (!best || uncertainty < best.uncertainty) best = { pos, uncertainty };
+  }
+  if (!best) {
     alert('Lodestone readings are too close to parallel to solve. Use lodestones spread further apart.');
     return;
   }
+  const pos = best.pos;
   const px = pos.x, pz = pos.z;
 
   let sumSqDeg = 0;
@@ -188,18 +204,7 @@ function estimate() {
     sumSqDeg += (diff * 180 / Math.PI) ** 2;
   });
   const rmsDeg = Math.sqrt(sumSqDeg / valid.length);
-
-  // baseline resolution error (best case, well-conditioned geometry)
-  const halfRes = (2 * Math.PI / 32) / 2;
-  let nearest = Infinity;
-  valid.forEach(r => {
-    const dist = Math.hypot(r.x - px, r.z - pz);
-    if (dist < nearest) nearest = dist;
-  });
-  const baseline = nearest * halfRes;
-  // real uncertainty: worse of baseline resolution and observed ensemble spread
-  // (spread captures amplification from near-parallel/ill-conditioned bearings)
-  const uncertainty = Math.round(Math.max(baseline, pos.spread || 0));
+  const uncertainty = Math.round(best.uncertainty);
 
   document.getElementById('outX').textContent = px.toFixed(1);
   document.getElementById('outZ').textContent = pz.toFixed(1);
