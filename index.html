@@ -47,7 +47,15 @@
     <div class="sprite-modal" id="spriteModal">
       <div class="sprite-modal-inner">
         <h3>Select the sprite that matches</h3>
-        <div class="sprite-grid" id="spriteGrid"></div>
+        <div class="compass-picker">
+          <button id="spritePrev" class="compass-arrow" aria-label="Previous">&lsaquo;</button>
+          <div class="compass-display">
+            <img id="compassImg" src="" alt="compass sprite">
+            <span id="compassLabel">#00</span>
+          </div>
+          <button id="spriteNext" class="compass-arrow" aria-label="Next">&rsaquo;</button>
+        </div>
+        <button class="btn btn-main" id="confirmSprite">OK</button>
         <button class="btn" id="closeModal">Cancel</button>
       </div>
     </div>

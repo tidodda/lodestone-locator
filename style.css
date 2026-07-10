@@ -252,50 +252,65 @@ h1 {
   background: #242424;
   border-radius: 6px;
   padding: 14px;
-  max-width: 360px;
+  max-width: 320px;
   width: 100%;
 }
 
 .sprite-modal-inner h3 {
   margin-top: 0;
+  margin-bottom: 12px;
   font-size: 12px;
   text-align: center;
 }
 
-.sprite-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 3px;
-  margin-bottom: 8px;
+.compass-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 12px;
 }
 
-.sprite-grid .sprite-option {
+.compass-arrow {
   background: #1a1a1a;
   border: 1px solid #3a3a3a;
-  border-radius: 3px;
-  padding: 2px;
+  color: #e0e0e0;
+  width: 34px;
+  height: 34px;
+  border-radius: 5px;
+  font-size: 18px;
+  line-height: 1;
   cursor: pointer;
-  text-align: center;
+  flex-shrink: 0;
 }
 
-.sprite-grid .sprite-option:hover {
+.compass-arrow:hover {
+  background: #2a2a2a;
   border-color: #666;
 }
 
-.sprite-grid .sprite-option img {
-  width: 100%;
+.compass-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.compass-display img {
+  width: 96px;
+  height: 96px;
   image-rendering: pixelated;
 }
 
-.sprite-grid .sprite-option span {
-  display: block;
-  font-size: 8px;
-  color: #888;
-  margin-top: 1px;
+.compass-display span {
+  font-size: 12px;
+  color: #ccc;
+  font-family: monospace;
 }
 
 .sprite-modal-inner .btn {
   width: 100%;
+  margin-top: 6px;
 }
 
 .json-box summary {

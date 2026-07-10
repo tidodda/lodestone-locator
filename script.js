@@ -3,12 +3,17 @@ const addRowBtn = document.getElementById('addRow');
 const estimateBtn = document.getElementById('estimate');
 const resultPanel = document.getElementById('resultPanel');
 const spriteModal = document.getElementById('spriteModal');
-const spriteGrid = document.getElementById('spriteGrid');
+const compassImg = document.getElementById('compassImg');
+const compassLabel = document.getElementById('compassLabel');
+const spritePrevBtn = document.getElementById('spritePrev');
+const spriteNextBtn = document.getElementById('spriteNext');
+const confirmSpriteBtn = document.getElementById('confirmSprite');
 const closeModalBtn = document.getElementById('closeModal');
 
 let rows = [];
 let nextId = 0;
 let modalTargetRowId = null;
+let modalSprite = 0;
 
 function spritePath(i) {
   return 'compass_textures/compass_' + String(i).padStart(2, '0') + '.png';
@@ -62,30 +67,43 @@ rowsEl.addEventListener('click', e => {
   }
 });
 
+function renderCompass() {
+  compassImg.src = spritePath(modalSprite);
+  compassLabel.textContent = '#' + String(modalSprite).padStart(2, '0');
+}
+
 function openSpriteModal(rowId) {
   modalTargetRowId = rowId;
-  spriteGrid.innerHTML = '';
-  for (let i = 0; i < 32; i++) {
-    const opt = document.createElement('div');
-    opt.className = 'sprite-option';
-    opt.dataset.sprite = i;
-    opt.innerHTML = '<img src="' + spritePath(i) + '"><span>' + String(i).padStart(2, '0') + '</span>';
-    spriteGrid.appendChild(opt);
-  }
+  const row = rows.find(r => r.id === rowId);
+  modalSprite = row ? row.sprite : 0;
+  renderCompass();
   spriteModal.classList.add('open');
 }
 
-spriteGrid.addEventListener('click', e => {
-  const opt = e.target.closest('.sprite-option');
-  if (!opt) return;
-  const row = rows.find(r => r.id === modalTargetRowId);
-  row.sprite = parseInt(opt.dataset.sprite);
+function closeSpriteModal() {
   spriteModal.classList.remove('open');
+  modalTargetRowId = null;
+}
+
+spritePrevBtn.addEventListener('click', () => {
+  modalSprite = (modalSprite + 31) % 32;
+  renderCompass();
+});
+
+spriteNextBtn.addEventListener('click', () => {
+  modalSprite = (modalSprite + 1) % 32;
+  renderCompass();
+});
+
+confirmSpriteBtn.addEventListener('click', () => {
+  const row = rows.find(r => r.id === modalTargetRowId);
+  if (row) row.sprite = modalSprite;
+  closeSpriteModal();
   renderRows();
 });
 
 closeModalBtn.addEventListener('click', () => {
-  spriteModal.classList.remove('open');
+  closeSpriteModal();
 });
 
 addRowBtn.addEventListener('click', () => addRow());
