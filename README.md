@@ -78,7 +78,7 @@ when clipping fails, it starts dropping readings. drop none, then 1, then 2, re-
 
 works great with 3+ readings spread at different angles. breaks down when readings are nearly parallel or too contradictory to reconcile.
 
-## algorithm b: weighted least-squares with ensembles
+## algorithm b: weighted least-squares with an ensemble
 
 more forgiving. instead of solving for an exact region, each reading becomes a linear equation, target at (x, z), lodestone at (lx, lz), bearing θ:
 ```
@@ -86,13 +86,17 @@ sin(θ)·x - cos(θ)·z = sin(θ)·lx - cos(θ)·lz
 ```
 solved as a matrix system. closer lodestones get weighted more heavily since their angular error matters more, then it's re-solved a few times.
 
-instead of trusting one fit, it takes 60 random subsets of the readings, up to 6 each, solves every one, and finds the point closest to all 60, the geometric median. that holds up against outliers much better than a plain average. bad readings get flagged by checking residuals against median + 6·MAD, and if outliers show up but 3+ good readings remain, it re-runs on just those.
+instead of trusting one fit, it takes 300 random subsets of the readings, up to 6 each, solves every one, and finds the point closest to all of them, the geometric median. that holds up against outliers much better than a plain average. bad readings get flagged by checking residuals against median + 6·MAD, and if outliers show up but 3+ good readings remain, it re-runs on just those.
 
-uncertainty is how spread out the 60 estimates end up. tight cluster means good geometry, scattered means noisy data. it always produces something, messy data or bad geometry or outliers included, though it won't be as tight as algorithm a when the input is clean.
+uncertainty comes from how spread out those 300 estimates end up around the median — the 50th percentile spread is reported as a "typical" figure, the 90th percentile as a worst-case. tight cluster on both means good geometry, a big gap between them means the fit is shakier than it looks. it always produces something, messy data or bad geometry or outliers included, though it won't be as tight as algorithm a when the input is clean.
+
+*(earlier versions ran several small ensembles and kept whichever one reported the smallest spread — that's just picking the luckiest random draw and reporting its optimistic number as if it were the real uncertainty. one larger ensemble, read honestly, gives an unbiased estimate instead.)*
 
 ## picking a winner
 
-both algorithms run every time, though algorithm a skips itself under 3 readings. whichever reports the smaller uncertainty wins. if only one produced a result, that one's used. if both fail, the readings just don't work together.
+both algorithms run every time, though algorithm a skips itself under 3 readings. algorithm a wins whenever it produces a result — it's an exact feasible region derived straight from the constraints, not a heuristic, so a smaller-looking number from algorithm b doesn't get to override it. algorithm b only takes over when a's wedges don't overlap at all (too few readings, or the data's too contradictory to reconcile). if only one produced a result, that one's used. if both fail, the readings just don't work together.
+
+as a sanity check, if b's point falls outside a's region, that's flagged as a disagreement — usually means a bad reading or wrong sprite somewhere worth double-checking, rather than something to silently resolve by comparing magnitudes.
 
 ## the numbers you get
 
@@ -100,7 +104,7 @@ for whichever position won, using the readings that were kept:
 
 - **RMS residual**: average bearing error, shows whether the readings agree with each other
 - **bearing spread**: biggest angle gap between any two readings, under 25° usually means bad geometry
-- **uncertainty radius**: rough error bound in blocks
+- **uncertainty radius**: rough error bound in blocks — shown as a typical/worst-case pair when algorithm b's ensemble is what's driving the number, since a single figure there would hide how much the estimate could still move
 
 plus the position itself, which algorithm won, any warnings, and a map of the region.
 
@@ -118,9 +122,11 @@ contradictory readings get handled differently by each algorithm. a tries droppi
 
 colinear lodestones, all roughly on a line from you, leave error tight perpendicular to that line but huge along it. same geometry warning catches it.
 
+a and b landing in visibly different spots is its own signal, flagged separately, and worth trusting over either algorithm's own confidence number.
+
 ## speed
 
-algorithm a is O(n²) since it checks combinations of dropped readings, but you'd need 10+ readings before that's noticeable. algorithm b's 60 subsets run essentially in parallel. all told, under 100ms.
+algorithm a is O(n²) since it checks combinations of dropped readings, but you'd need 10+ readings before that's noticeable. algorithm b's 300 subsets run essentially in parallel. all told, under 100ms.
 
 ## where this comes from
 
