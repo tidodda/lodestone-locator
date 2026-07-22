@@ -9,10 +9,6 @@
 <body>
   <div class="container">
     <h1>tidodda`s Lodestone Position Finder</h1>
-    <div class="dim-toggle" id="dimToggle" role="radiogroup" aria-label="Dimension your coordinates are in">
-      <button class="dim-btn active" data-dim="overworld" role="radio" aria-checked="true">Overworld</button>
-      <button class="dim-btn" data-dim="nether" role="radio" aria-checked="false">Nether</button>
-    </div>
     <div class="panel">
       <h2>Lodestones</h2>
       <div class="arrangement" id="arrangementBox" style="display:none">
@@ -40,12 +36,6 @@
       <div class="readout" id="mainReadout" title="Click to copy">
         <div class="readout-item"><span class="readout-label">X</span><span class="readout-value" id="outX">-</span></div>
         <div class="readout-item"><span class="readout-label">Z</span><span class="readout-value" id="outZ">-</span></div>
-      </div>
-      <div class="result-row copyable" id="rowOverworld" title="Click to copy">
-        <span>Overworld</span><span id="outOverworld">-</span>
-      </div>
-      <div class="result-row copyable" id="rowNether" title="Click to copy">
-        <span>Nether</span><span id="outNether">-</span>
       </div>
       <div class="result-row"><span>Rough uncertainty</span><span id="outUncertainty">-</span></div>
       <div class="result-row"><span>Fit residual</span><span id="outResidual">-</span></div>
