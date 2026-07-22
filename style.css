@@ -160,33 +160,6 @@ h1 {
   text-align: left;
 }
 
-.result-map {
-  display: block;
-  width: 100%;
-  max-width: 260px;
-  aspect-ratio: 1;
-  margin: 3px auto 0;
-  background: #1a1a1a;
-  border: 1px solid #333;
-  border-radius: 5px;
-}
-
-.map-label {
-  margin-top: 8px;
-  font-size: 10px;
-  color: #808080;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.poly-vertices {
-  margin-top: 5px;
-  font-size: 10px;
-  color: #909090;
-  text-align: left;
-  word-break: break-word;
-}
-
 .result-panel {
   text-align: center;
 }
