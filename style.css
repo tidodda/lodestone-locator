@@ -25,6 +25,46 @@ h1 {
   letter-spacing: -0.01em;
 }
 
+.dim-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.dim-btn {
+  flex: 1;
+  background: #242424;
+  border: 1px solid #3a3a3a;
+  color: #999;
+  padding: 7px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dim-btn:hover {
+  border-color: #555;
+}
+
+.dim-btn.active {
+  background: #3a5a8a;
+  border-color: #4a6a9a;
+  color: #fff;
+}
+
+.result-row.copyable {
+  cursor: pointer;
+}
+
+.result-row.copyable:hover {
+  background: #2a2a2a;
+}
+
+.result-row.copyable.copied span:last-child {
+  color: #6ec06e;
+}
+
 .panel {
   background: #242424;
   border-radius: 6px;
@@ -39,6 +79,43 @@ h1 {
   letter-spacing: 0.04em;
   margin: 0 0 8px;
   color: #888;
+}
+
+.arrangement {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: -2px 0 8px;
+}
+
+.arrangement-label {
+  font-size: 10px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.arrangement-bar {
+  flex: 1;
+  height: 5px;
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.arrangement-fill {
+  height: 100%;
+  width: 0%;
+  background: #a55;
+  transition: width 0.2s ease, background 0.2s ease;
+}
+
+.arrangement-pct {
+  font-size: 11px;
+  font-family: monospace;
+  color: #ccc;
+  min-width: 32px;
+  text-align: right;
 }
 
 .row {
@@ -230,6 +307,16 @@ h1 {
   justify-content: center;
   gap: 20px;
   padding: 2px 0 8px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.readout:hover {
+  background: #2a2a2a;
+}
+
+.readout.copied .readout-value {
+  color: #6ec06e;
 }
 
 .readout-item {
