@@ -15,22 +15,6 @@ const jsonErrorEl = document.getElementById('jsonError');
 const arrangementBox = document.getElementById('arrangementBox');
 const arrangementFill = document.getElementById('arrangementFill');
 const arrangementPct = document.getElementById('arrangementPct');
-const dimToggle = document.getElementById('dimToggle');
-const rowOverworld = document.getElementById('rowOverworld');
-const rowNether = document.getElementById('rowNether');
-
-let inputDimension = 'overworld'; // which dimension the entered X/Z coordinates are in
-
-dimToggle.addEventListener('click', e => {
-  const btn = e.target.closest('.dim-btn');
-  if (!btn) return;
-  inputDimension = btn.dataset.dim;
-  dimToggle.querySelectorAll('.dim-btn').forEach(b => {
-    const active = b === btn;
-    b.classList.toggle('active', active);
-    b.setAttribute('aria-checked', active);
-  });
-});
 
 function copyText(el, text) {
   navigator.clipboard.writeText(text).catch(() => {});
@@ -38,14 +22,6 @@ function copyText(el, text) {
   clearTimeout(el._copyTimeout);
   el._copyTimeout = setTimeout(() => el.classList.remove('copied'), 1000);
 }
-
-[rowOverworld, rowNether].forEach(row => {
-  row.addEventListener('click', () => {
-    const text = row.querySelector('span:last-child').textContent;
-    if (text === '-') return;
-    copyText(row, text);
-  });
-});
 
 const mainReadout = document.getElementById('mainReadout');
 mainReadout.addEventListener('click', () => {
@@ -111,27 +87,23 @@ function renderRows() {
   updateEstimateState();
 }
 
-function spriteToAngle(sprite) {
-  return ((sprite + 17.5) / 32) * 2 * Math.PI;
-}
-
-// Score how well-conditioned the set of compass BEARINGS is, on its own -
-// no X/Z needed. Builds the same 2x2 normal-equations matrix the solver uses
-// (unit direction per bearing, unweighted) and scores it by its eigenvalue
-// ratio: 100% = eigenvalues equal (bearings evenly balanced, nothing
-// under-constrained), 0% = smallest eigenvalue is 0 (bearings are parallel,
-// matrix is singular, the same failure the "too close to parallel" warning
-// flags). This is a measure of arrangement quality, not reading accuracy.
-function arrangementScore(sprites) {
-  if (sprites.length < 2) return null;
-  let Sxx = 0, Sxy = 0, Syy = 0;
-  sprites.forEach(sp => {
-    const angle = spriteToAngle(sp);
-    const a = Math.sin(angle), b = -Math.cos(angle);
-    Sxx += a * a; Sxy += a * b; Syy += b * b;
+// Score how well-SPREAD the lodestone POSITIONS are, ignoring orientation/sprite
+// entirely. Nearly-collinear lodestones make triangulation poorly conditioned
+// no matter what the true bearings turn out to be, so this looks at the (x,z)
+// point cloud itself: build its covariance matrix and score by the eigenvalue
+// ratio. 100% = points spread evenly in both directions (no dominant axis),
+// 0% = points fall on (or near) a single line.
+function arrangementScore(points) {
+  if (points.length < 2) return null;
+  const mx = points.reduce((s, p) => s + p.x, 0) / points.length;
+  const mz = points.reduce((s, p) => s + p.z, 0) / points.length;
+  let Sxx = 0, Sxz = 0, Szz = 0;
+  points.forEach(p => {
+    const dx = p.x - mx, dz = p.z - mz;
+    Sxx += dx * dx; Sxz += dx * dz; Szz += dz * dz;
   });
-  const trace = Sxx + Syy;
-  const diff = Math.sqrt(((Sxx - Syy) / 2) ** 2 + Sxy * Sxy);
+  const trace = Sxx + Szz;
+  const diff = Math.sqrt(((Sxx - Szz) / 2) ** 2 + Sxz * Sxz);
   const lambdaMax = trace / 2 + diff;
   const lambdaMin = trace / 2 - diff;
   if (lambdaMax <= 1e-9) return 0;
@@ -139,10 +111,10 @@ function arrangementScore(sprites) {
 }
 
 function updateArrangementDisplay() {
-  const sprites = rows
+  const points = rows
     .filter(r => isValidCoord(r.x) && isValidCoord(r.z))
-    .map(r => r.sprite);
-  const score = arrangementScore(sprites);
+    .map(r => ({ x: parseFloat(r.x), z: parseFloat(r.z) }));
+  const score = arrangementScore(points);
   if (score === null) {
     arrangementBox.style.display = 'none';
     return;
@@ -549,14 +521,6 @@ function estimate() {
 
   document.getElementById('outX').textContent = px.toFixed(1);
   document.getElementById('outZ').textContent = pz.toFixed(1);
-
-  const overworldX = inputDimension === 'overworld' ? px : px * 8;
-  const overworldZ = inputDimension === 'overworld' ? pz : pz * 8;
-  const netherX = inputDimension === 'nether' ? px : px / 8;
-  const netherZ = inputDimension === 'nether' ? pz : pz / 8;
-  document.getElementById('outOverworld').textContent = overworldX.toFixed(1) + ', ' + overworldZ.toFixed(1);
-  document.getElementById('outNether').textContent = netherX.toFixed(1) + ', ' + netherZ.toFixed(1);
-
   document.getElementById('outUncertainty').textContent = '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
   document.getElementById('outMethod').textContent = chosen.method;
