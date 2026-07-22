@@ -9,11 +9,24 @@ const spritePrevBtn = document.getElementById('spritePrev');
 const spriteNextBtn = document.getElementById('spriteNext');
 const confirmSpriteBtn = document.getElementById('confirmSprite');
 const closeModalBtn = document.getElementById('closeModal');
+const rowHintEl = document.getElementById('rowHint');
+const formErrorEl = document.getElementById('formError');
+const jsonErrorEl = document.getElementById('jsonError');
 
 let rows = [];
 let nextId = 0;
 let modalTargetRowId = null;
 let modalSprite = 0;
+let lastAddedId = null;
+
+function isValidCoord(v) {
+  return v !== '' && Number.isFinite(parseFloat(v));
+}
+
+function showFormError(msg) {
+  formErrorEl.textContent = msg;
+  formErrorEl.style.display = msg ? 'block' : 'none';
+}
 
 function spritePath(i) {
   return 'compass_textures/compass_' + String(i).padStart(2, '0') + '.png';
@@ -22,25 +35,53 @@ function spritePath(i) {
 function addRow(x, z, sprite) {
   const id = nextId++;
   rows.push({ id, x: x !== undefined ? x : '', z: z !== undefined ? z : '', sprite: sprite !== undefined ? sprite : 0 });
+  lastAddedId = id;
   renderRows();
 }
 
 function renderRows() {
   rowsEl.innerHTML = '';
-  rows.forEach(row => {
-    const div = document.createElement('div');
-    div.className = 'row';
-    div.dataset.id = row.id;
-    div.innerHTML =
-      '<div class="coord"><label>X</label><input type="number" class="in-x" value="' + row.x + '"></div>' +
-      '<div class="coord"><label>Z</label><input type="number" class="in-z" value="' + row.z + '"></div>' +
-      '<div class="sprite-picker">' +
-        '<img src="' + spritePath(row.sprite) + '">' +
-        '<span>#' + String(row.sprite).padStart(2, '0') + '</span>' +
-      '</div>' +
-      '<button class="remove-row" title="Remove">&times;</button>';
-    rowsEl.appendChild(div);
-  });
+  if (rows.length === 0) {
+    rowsEl.innerHTML = '<div class="empty-state">No lodestones yet — add at least 2.</div>';
+  } else {
+    rows.forEach(row => {
+      const div = document.createElement('div');
+      div.className = 'row';
+      div.dataset.id = row.id;
+      const xInvalid = row.x !== '' && !isValidCoord(row.x);
+      const zInvalid = row.z !== '' && !isValidCoord(row.z);
+      div.innerHTML =
+        '<div class="coord"><label>X</label><input type="number" class="in-x' + (xInvalid ? ' invalid' : '') + '" value="' + row.x + '"></div>' +
+        '<div class="coord"><label>Z</label><input type="number" class="in-z' + (zInvalid ? ' invalid' : '') + '" value="' + row.z + '"></div>' +
+        '<div class="sprite-picker" tabindex="0" role="button" aria-label="Compass sprite ' + row.sprite + ', click to change">' +
+          '<img src="' + spritePath(row.sprite) + '">' +
+          '<span>#' + String(row.sprite).padStart(2, '0') + '</span>' +
+        '</div>' +
+        '<button class="remove-row" aria-label="Remove lodestone" title="Remove">&times;</button>';
+      rowsEl.appendChild(div);
+    });
+  }
+  if (lastAddedId !== null) {
+    const el = rowsEl.querySelector('.row[data-id="' + lastAddedId + '"] .in-x');
+    if (el) el.focus();
+    lastAddedId = null;
+  }
+  updateEstimateState();
+}
+
+function updateEstimateState() {
+  const validCount = rows.filter(r => isValidCoord(r.x) && isValidCoord(r.z)).length;
+  estimateBtn.disabled = validCount < 2;
+  if (rows.length === 0) {
+    rowHintEl.textContent = '';
+  } else if (validCount < 2) {
+    rowHintEl.textContent = 'Add at least 2 lodestones with numeric X/Z coordinates.';
+  } else if (validCount < 3) {
+    rowHintEl.textContent = 'Tip: a 3rd lodestone (from a different direction) gives a tighter, more reliable estimate.';
+  } else {
+    rowHintEl.textContent = '';
+  }
+  showFormError('');
 }
 
 rowsEl.addEventListener('input', e => {
@@ -49,6 +90,9 @@ rowsEl.addEventListener('input', e => {
   const row = rows.find(r => r.id === id);
   if (e.target.classList.contains('in-x')) row.x = e.target.value;
   if (e.target.classList.contains('in-z')) row.z = e.target.value;
+  const invalid = e.target.value !== '' && !isValidCoord(e.target.value);
+  e.target.classList.toggle('invalid', invalid);
+  updateEstimateState();
 });
 
 rowsEl.addEventListener('click', e => {
@@ -65,6 +109,15 @@ rowsEl.addEventListener('click', e => {
   if (e.target.closest('.sprite-picker')) {
     openSpriteModal(id);
   }
+});
+
+rowsEl.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const picker = e.target.closest('.sprite-picker');
+  if (!picker) return;
+  e.preventDefault();
+  const rowDiv = picker.closest('.row');
+  openSpriteModal(parseInt(rowDiv.dataset.id));
 });
 
 function renderCompass() {
@@ -106,6 +159,18 @@ closeModalBtn.addEventListener('click', () => {
   closeSpriteModal();
 });
 
+spriteModal.addEventListener('click', e => {
+  if (e.target === spriteModal) closeSpriteModal();
+});
+
+document.addEventListener('keydown', e => {
+  if (!spriteModal.classList.contains('open')) return;
+  if (e.key === 'Escape') { closeSpriteModal(); return; }
+  if (e.key === 'ArrowLeft') { spritePrevBtn.click(); return; }
+  if (e.key === 'ArrowRight') { spriteNextBtn.click(); return; }
+  if (e.key === 'Enter') { confirmSpriteBtn.click(); return; }
+});
+
 addRowBtn.addEventListener('click', () => addRow());
 
 addRow(0, 0, 0);
@@ -134,8 +199,6 @@ function solvePosition(ls, angles, weights) {
   };
 }
 
-// Iteratively reweighted least squares: closer lodestones get more weight,
-// since the same angular error covers less ground distance-wise.
 function weightedSolve(ls, angles, iters) {
   let pos = solvePosition(ls, angles);
   if (!pos) return null;
@@ -189,9 +252,8 @@ function ensembleSolve(ls, angles) {
     return pos ? { ...pos, spread: 0 } : null;
   }
   const med = geometricMedian(estimates, 40);
-  // spread of the ensemble = real uncertainty, including bad-geometry amplification
   const distances = estimates.map(p => Math.hypot(p.x - med.x, p.z - med.z)).sort((a, b) => a - b);
-  const spread = distances[Math.floor(distances.length * 0.9)]; // 90th percentile
+  const spread = distances[Math.floor(distances.length * 0.9)];
   return { ...med, spread };
 }
 
@@ -212,12 +274,6 @@ function runRolls(ls, angles, numRolls, halfRes) {
   return best;
 }
 
-// ---- Exact wedge-intersection algorithm ----
-// A compass reading isn't noise around a center angle - it's a hard constraint:
-// "the true bearing lies somewhere in this 11.25 degree sector." Each reading
-// therefore defines a wedge (2 half-planes) the target must lie inside. Intersecting
-// all wedges gives the exact feasible region - tighter and more honest than curve
-// fitting through sector centers, and its size is a real uncertainty bound.
 function clipHalfplane(poly, nx, nz, ax, az) {
   if (poly.length === 0) return poly;
   const val = p => nx * (p.x - ax) + nz * (p.z - az);
@@ -279,14 +335,6 @@ function combos(n, k) {
   })(0, []);
   return res;
 }
-// Finds the exact feasible region, dropping the fewest possible readings to
-// resolve any inconsistency. Candidates are scored by how well the resulting
-// position fits ALL readings (90th-percentile bearing residual across the full
-// set), not by how small the resulting region is - a tiny region can arise from
-// a coincidental near-parallel overlap between the WRONG readings and be totally
-// wrong, even though it looks maximally "confident". Extra exclusions are only
-// accepted if they meaningfully improve that full-set fit (avoids overfitting
-// by discarding valid readings just to shrink the region).
 function wedgeSolve(ls, angles, halfRes, maxExclude) {
   const xs = ls.map(r => r.x), zs = ls.map(r => r.z);
   const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 10000);
@@ -315,7 +363,6 @@ function wedgeSolve(ls, angles, halfRes, maxExclude) {
       if (cand && (!bestForK || cand.fitScore < bestForK.fitScore)) bestForK = cand;
     });
     if (!bestForK) continue;
-    // only take on more exclusions if they clearly improve the fit
     if (!overallBest || bestForK.fitScore < overallBest.fitScore - 2) overallBest = bestForK;
     else break;
   }
@@ -328,16 +375,15 @@ function estimate() {
     .filter(r => Number.isFinite(r.x) && Number.isFinite(r.z));
 
   if (valid.length < 2) {
-    alert('Add at least 2 lodestones with coordinates.');
+    showFormError('Add at least 2 lodestones with numeric X/Z coordinates.');
     return;
   }
+  showFormError('');
 
   const angles = valid.map(r => ((r.sprite + 17.5) / 32) * 2 * Math.PI);
   const halfRes = (2 * Math.PI / 32) / 2;
-  const numRolls = 5; // fallback-path only (used when wedge intersection can't run)
+  const numRolls = 5;
 
-  // Algorithm A: exact wedge intersection (tightest possible, but needs >=3
-  // lodestones and can fail to find a feasible region if too many are noisy)
   let candidateA = null;
   if (valid.length >= 3) {
     const maxExclude = Math.min(2, valid.length - 3);
@@ -345,8 +391,6 @@ function estimate() {
     if (w) candidateA = { pos: w.pos, poly: w.poly, uncertainty: w.uncertainty, excluded: w.excluded, method: 'exact intersection' };
   }
 
-  // Algorithm B: weighted least-squares over random ensembles (always available,
-  // degrades gracefully, its own residual-based outlier pass)
   let candidateB = null;
   {
     let best = runRolls(valid, angles, numRolls, halfRes);
@@ -375,7 +419,8 @@ function estimate() {
   }
 
   if (!candidateA && !candidateB) {
-    alert('Lodestone readings are too close to parallel to solve. Use lodestones spread further apart.');
+    showFormError('Lodestone readings are too close to parallel to solve. Use lodestones spread further apart.');
+    resultPanel.style.display = 'none';
     return;
   }
   const chosen = (candidateA && (!candidateB || candidateA.uncertainty <= candidateB.uncertainty)) ? candidateA : candidateB;
@@ -394,7 +439,6 @@ function estimate() {
   const rmsDeg = Math.sqrt(sumSqDeg / usedValid.length);
   const uncertainty = Math.round(chosen.uncertainty);
 
-  // Geometry warning: bearings too clustered (near-parallel) amplify any error a lot.
   let maxSpreadDeg = 0;
   for (let i = 0; i < usedAngles.length; i++) {
     for (let j = i + 1; j < usedAngles.length; j++) {
@@ -453,8 +497,6 @@ function renderMap(ls, angles, halfRes, pos, poly) {
     const toSvg = p => ({ x: (p.x - box.minX) * scale, y: (p.z - box.minZ) * scale });
 
     let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg">';
-    // each lodestone's own bearing wedge, clipped to the visible area - darker
-    // overlap = where more readings agree, which is how the final region forms
     if (drawWedges) {
       ls.forEach((r, i) => {
         const wedgePoly = wedgeIntersection([r], [angles[i]], halfRes, box);
@@ -478,10 +520,8 @@ function renderMap(ls, angles, halfRes, pos, poly) {
     el.style.display = 'block';
   }
 
-  // overview: full context - lodestones, their individual wedges, and the final polygon
   drawSvg(overviewSvg, [...ls, ...poly, pos], true, true);
   overviewLabel.style.display = 'block';
-  // detail: zoomed tightly to the polygon itself so its exact shape is visible
   drawSvg(detailSvg, [...poly, pos], false, false);
   detailLabel.style.display = 'block';
 
@@ -492,20 +532,26 @@ function renderMap(ls, angles, halfRes, pos, poly) {
 
 estimateBtn.addEventListener('click', estimate);
 
+function showJsonError(msg) {
+  jsonErrorEl.textContent = msg;
+  jsonErrorEl.style.display = msg ? 'block' : 'none';
+}
+
 document.getElementById('loadJson').addEventListener('click', () => {
   const raw = document.getElementById('jsonInput').value.trim();
-  if (!raw) return;
+  if (!raw) { showJsonError('Paste some JSON first.'); return; }
   let data;
   try {
     data = JSON.parse(raw);
   } catch (e) {
-    alert('Could not parse that JSON.');
+    showJsonError('Could not parse that JSON: ' + e.message);
     return;
   }
   if (!Array.isArray(data)) {
-    alert('JSON should be an array of { x, z, sprite } objects.');
+    showJsonError('JSON should be an array of { x, z, sprite } objects.');
     return;
   }
+  showJsonError('');
   rows = [];
   data.forEach(item => {
     addRow(item.x, item.z, item.sprite || 0);
