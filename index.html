@@ -9,24 +9,23 @@
 <body>
   <div class="container">
     <h1>tidodda`s Lodestone Position Finder</h1>
-
     <div class="panel">
       <h2>Lodestones</h2>
       <div id="rows"></div>
       <button id="addRow" class="btn">+ Add lodestone</button>
-
+      <div id="rowHint" class="hint"></div>
       <details class="json-box">
         <summary>JSON</summary>
         <textarea id="jsonInput" rows="3" placeholder='[{"x": -25000000, "z": 10000000, "sprite": 12}, ...]'></textarea>
+        <div class="hint error" id="jsonError" style="display:none"></div>
         <div class="json-actions">
           <button id="loadJson" class="btn">Load</button>
           <button id="copyJson" class="btn">Copy current</button>
         </div>
       </details>
     </div>
-
     <button id="estimate" class="btn btn-main">Estimate position</button>
-
+    <div class="hint error" id="formError" style="display:none"></div>
     <div class="panel result-panel" id="resultPanel" style="display:none">
       <h2>Result</h2>
       <div class="readout">
@@ -43,7 +42,6 @@
       <div class="poly-vertices" id="polyVertices" style="display:none"></div>
       <div class="warning-banner" id="outWarning" style="display:none"></div>
     </div>
-
     <div class="sprite-modal" id="spriteModal">
       <div class="sprite-modal-inner">
         <h3>Select the sprite that matches</h3>
@@ -59,7 +57,6 @@
         <button class="btn" id="closeModal">Cancel</button>
       </div>
     </div>
-
     <footer>made by <a class="link" href="https://tidodda.dev" target="_blank" rel="noopener">tidodda</a></footer>
     <footer>source code <a class="link" href="https://github.com/tidodda/lodestone-locator" target="_blank" rel="noopener">here</a></footer>
   </div>
