@@ -12,6 +12,48 @@ const closeModalBtn = document.getElementById('closeModal');
 const rowHintEl = document.getElementById('rowHint');
 const formErrorEl = document.getElementById('formError');
 const jsonErrorEl = document.getElementById('jsonError');
+const arrangementBox = document.getElementById('arrangementBox');
+const arrangementFill = document.getElementById('arrangementFill');
+const arrangementPct = document.getElementById('arrangementPct');
+const dimToggle = document.getElementById('dimToggle');
+const rowOverworld = document.getElementById('rowOverworld');
+const rowNether = document.getElementById('rowNether');
+
+let inputDimension = 'overworld'; // which dimension the entered X/Z coordinates are in
+
+dimToggle.addEventListener('click', e => {
+  const btn = e.target.closest('.dim-btn');
+  if (!btn) return;
+  inputDimension = btn.dataset.dim;
+  dimToggle.querySelectorAll('.dim-btn').forEach(b => {
+    const active = b === btn;
+    b.classList.toggle('active', active);
+    b.setAttribute('aria-checked', active);
+  });
+});
+
+function copyText(el, text) {
+  navigator.clipboard.writeText(text).catch(() => {});
+  el.classList.add('copied');
+  clearTimeout(el._copyTimeout);
+  el._copyTimeout = setTimeout(() => el.classList.remove('copied'), 1000);
+}
+
+[rowOverworld, rowNether].forEach(row => {
+  row.addEventListener('click', () => {
+    const text = row.querySelector('span:last-child').textContent;
+    if (text === '-') return;
+    copyText(row, text);
+  });
+});
+
+const mainReadout = document.getElementById('mainReadout');
+mainReadout.addEventListener('click', () => {
+  const x = document.getElementById('outX').textContent;
+  const z = document.getElementById('outZ').textContent;
+  if (x === '-') return;
+  copyText(mainReadout, x + ', ' + z);
+});
 
 let rows = [];
 let nextId = 0;
@@ -69,6 +111,51 @@ function renderRows() {
   updateEstimateState();
 }
 
+function spriteToAngle(sprite) {
+  return ((sprite + 17.5) / 32) * 2 * Math.PI;
+}
+
+// Score how well-conditioned the set of compass BEARINGS is, on its own -
+// no X/Z needed. Builds the same 2x2 normal-equations matrix the solver uses
+// (unit direction per bearing, unweighted) and scores it by its eigenvalue
+// ratio: 100% = eigenvalues equal (bearings evenly balanced, nothing
+// under-constrained), 0% = smallest eigenvalue is 0 (bearings are parallel,
+// matrix is singular, the same failure the "too close to parallel" warning
+// flags). This is a measure of arrangement quality, not reading accuracy.
+function arrangementScore(sprites) {
+  if (sprites.length < 2) return null;
+  let Sxx = 0, Sxy = 0, Syy = 0;
+  sprites.forEach(sp => {
+    const angle = spriteToAngle(sp);
+    const a = Math.sin(angle), b = -Math.cos(angle);
+    Sxx += a * a; Sxy += a * b; Syy += b * b;
+  });
+  const trace = Sxx + Syy;
+  const diff = Math.sqrt(((Sxx - Syy) / 2) ** 2 + Sxy * Sxy);
+  const lambdaMax = trace / 2 + diff;
+  const lambdaMin = trace / 2 - diff;
+  if (lambdaMax <= 1e-9) return 0;
+  return Math.max(0, Math.min(100, (lambdaMin / lambdaMax) * 100));
+}
+
+function updateArrangementDisplay() {
+  const sprites = rows
+    .filter(r => isValidCoord(r.x) && isValidCoord(r.z))
+    .map(r => r.sprite);
+  const score = arrangementScore(sprites);
+  if (score === null) {
+    arrangementBox.style.display = 'none';
+    return;
+  }
+  arrangementBox.style.display = 'flex';
+  const pct = Math.round(score);
+  arrangementFill.style.width = pct + '%';
+  arrangementPct.textContent = pct + '%';
+  // red -> yellow -> green as the arrangement improves
+  const color = pct < 40 ? '#a55' : pct < 70 ? '#c9a04a' : '#5a9e5a';
+  arrangementFill.style.background = color;
+}
+
 function updateEstimateState() {
   const validCount = rows.filter(r => isValidCoord(r.x) && isValidCoord(r.z)).length;
   estimateBtn.disabled = validCount < 2;
@@ -82,6 +169,7 @@ function updateEstimateState() {
     rowHintEl.textContent = '';
   }
   showFormError('');
+  updateArrangementDisplay();
 }
 
 rowsEl.addEventListener('input', e => {
@@ -461,6 +549,14 @@ function estimate() {
 
   document.getElementById('outX').textContent = px.toFixed(1);
   document.getElementById('outZ').textContent = pz.toFixed(1);
+
+  const overworldX = inputDimension === 'overworld' ? px : px * 8;
+  const overworldZ = inputDimension === 'overworld' ? pz : pz * 8;
+  const netherX = inputDimension === 'nether' ? px : px / 8;
+  const netherZ = inputDimension === 'nether' ? pz : pz / 8;
+  document.getElementById('outOverworld').textContent = overworldX.toFixed(1) + ', ' + overworldZ.toFixed(1);
+  document.getElementById('outNether').textContent = netherX.toFixed(1) + ', ' + netherZ.toFixed(1);
+
   document.getElementById('outUncertainty').textContent = '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
   document.getElementById('outMethod').textContent = chosen.method;
