@@ -86,7 +86,7 @@ sin(θ)·x - cos(θ)·z = sin(θ)·lx - cos(θ)·lz
 ```
 solved as a matrix system. closer lodestones get weighted more heavily since their angular error matters more, then it's re-solved a few times.
 
-instead of trusting one fit, it takes 300 random subsets of the readings, up to 6 each, solves every one, and finds the point closest to all of them, the geometric median. that holds up against outliers much better than a plain average. bad readings get flagged by checking residuals against median + 6·MAD, and if outliers show up but 3+ good readings remain, it re-runs on just those.
+instead of trusting one fit, it takes 300 random subsets of the readings, up to 6 each, solves every one, and finds the point closest to all of them, the geometric median. that holds up against outliers much better than a plain average. bad readings get flagged by checking residuals against median + 6·MAD (with a 15° floor, so tight data isn't flagged over noise), and if outliers show up but 3+ good readings remain, it re-runs on just those.
 
 uncertainty comes from how spread out those 300 estimates end up around the median — the 50th percentile spread is reported as a "typical" figure, the 90th percentile as a worst-case. tight cluster on both means good geometry, a big gap between them means the fit is shakier than it looks. it always produces something, messy data or bad geometry or outliers included, though it won't be as tight as algorithm a when the input is clean.
 
