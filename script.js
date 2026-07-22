@@ -221,8 +221,6 @@ function solveLeastSquares(ls, angles, halfRes) {
     if (refit) finalSol = refit;
   }
 
-  // baseline: the angular resolution alone, applied to the nearest lodestone -
-  // uncertainty can never be tighter than what one reading's granularity allows
   let nearest = Infinity;
   ls.forEach(r => {
     const dist = Math.hypot(r.x - finalSol.x, r.z - finalSol.z);
@@ -300,7 +298,6 @@ function combos(n, k) {
   })(0, []);
   return res;
 }
-
 function wedgeSolve(ls, angles, halfRes, maxExclude) {
   const xs = ls.map(r => r.x), zs = ls.map(r => r.z);
   const span = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...zs) - Math.min(...zs), 10000);
@@ -329,7 +326,6 @@ function wedgeSolve(ls, angles, halfRes, maxExclude) {
       if (cand && (!bestForK || cand.fitScore < bestForK.fitScore)) bestForK = cand;
     });
     if (!bestForK) continue;
-    // only take on more exclusions if they clearly improve the fit
     if (!overallBest || bestForK.fitScore < overallBest.fitScore - 2) overallBest = bestForK;
     else break;
   }
@@ -366,6 +362,7 @@ function estimate() {
     const w = wedgeSolve(valid, angles, halfRes, maxExclude);
     if (w) candidateA = { pos: w.pos, poly: w.poly, uncertainty: w.uncertainty, excluded: w.excluded, method: 'exact intersection' };
   }
+
   const candidateB = solveLeastSquares(valid, angles, halfRes);
 
   if (!candidateA && !candidateB) {
@@ -391,7 +388,6 @@ function estimate() {
   const uncertainty = Math.round(chosen.uncertainty);
   const uncertainty50 = chosen.spread50 !== undefined ? Math.round(chosen.spread50) : null;
 
-  // Geometry warning: bearings too clustered (near-parallel) amplify any error a lot.
   let maxSpreadDeg = 0;
   for (let i = 0; i < usedAngles.length; i++) {
     for (let j = i + 1; j < usedAngles.length; j++) {
@@ -422,70 +418,7 @@ function estimate() {
     : '±' + uncertainty.toLocaleString();
   document.getElementById('outResidual').textContent = rmsDeg.toFixed(2) + '°';
   document.getElementById('outMethod').textContent = chosen.method;
-  renderMap(usedValid, usedAngles, halfRes, chosen.pos, chosen.poly || null);
   resultPanel.style.display = 'block';
-}
-
-function renderMap(ls, angles, halfRes, pos, poly) {
-  const overviewSvg = document.getElementById('resultMap');
-  const detailSvg = document.getElementById('resultMapDetail');
-  const overviewLabel = document.getElementById('overviewLabel');
-  const detailLabel = document.getElementById('detailLabel');
-  const vertBox = document.getElementById('polyVertices');
-  if (!poly || poly.length < 3) {
-    overviewSvg.innerHTML = ''; overviewSvg.style.display = 'none'; overviewLabel.style.display = 'none';
-    detailSvg.innerHTML = ''; detailSvg.style.display = 'none'; detailLabel.style.display = 'none';
-    vertBox.style.display = 'none';
-    return;
-  }
-
-  function computeBox(boundsPts) {
-    const xs = boundsPts.map(p => p.x), zs = boundsPts.map(p => p.z);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minZ = Math.min(...zs), maxZ = Math.max(...zs);
-    const spanX = Math.max(maxX - minX, 1), spanZ = Math.max(maxZ - minZ, 1);
-    const pad = Math.max(spanX, spanZ) * 0.25;
-    return { minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad };
-  }
-
-  function drawSvg(el, boundsPts, drawLodestones, drawWedges) {
-    const box = computeBox(boundsPts);
-    const w = 400, h = 400;
-    const scale = Math.min(w / (box.maxX - box.minX), h / (box.maxZ - box.minZ));
-    const toSvg = p => ({ x: (p.x - box.minX) * scale, y: (p.z - box.minZ) * scale });
-
-    let s = '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg">';
-    if (drawWedges) {
-      ls.forEach((r, i) => {
-        const wedgePoly = wedgeIntersection([r], [angles[i]], halfRes, box);
-        if (!wedgePoly) return;
-        const pts = wedgePoly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
-        s += '<polygon points="' + pts + '" fill="#e0a030" fill-opacity="0.07" stroke="#e0a030" stroke-opacity="0.35" stroke-width="1"/>';
-      });
-    }
-    const polyPts = poly.map(p => { const t = toSvg(p); return t.x + ',' + t.y; }).join(' ');
-    s += '<polygon points="' + polyPts + '" fill="#3a5a8a" fill-opacity="0.45" stroke="#6a8ac0" stroke-width="2"/>';
-    if (drawLodestones) {
-      ls.forEach(r => {
-        const t = toSvg(r);
-        s += '<circle cx="' + t.x + '" cy="' + t.y + '" r="4" fill="#e0a030"/>';
-      });
-    }
-    const tp = toSvg(pos);
-    s += '<circle cx="' + tp.x + '" cy="' + tp.y + '" r="5" fill="#e05050" stroke="#fff" stroke-width="1.5"/>';
-    s += '</svg>';
-    el.innerHTML = s;
-    el.style.display = 'block';
-  }
-
-  drawSvg(overviewSvg, [...ls, ...poly, pos], true, true);
-  overviewLabel.style.display = 'block';
-  drawSvg(detailSvg, [...poly, pos], false, false);
-  detailLabel.style.display = 'block';
-
-  vertBox.style.display = 'block';
-  vertBox.textContent = 'Feasible region vertices: ' +
-    poly.map(p => '(' + p.x.toFixed(0) + ', ' + p.z.toFixed(0) + ')').join('  ');
 }
 
 estimateBtn.addEventListener('click', estimate);
