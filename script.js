@@ -8,6 +8,7 @@ const compassLabel = document.getElementById('compassLabel');
 const spritePrevBtn = document.getElementById('spritePrev');
 const spriteNextBtn = document.getElementById('spriteNext');
 const confirmSpriteBtn = document.getElementById('confirmSprite');
+const nextCompassBtn = document.getElementById('nextCompass');
 const closeModalBtn = document.getElementById('closeModal');
 
 let rows = [];
@@ -100,6 +101,20 @@ confirmSpriteBtn.addEventListener('click', () => {
   if (row) row.sprite = modalSprite;
   closeSpriteModal();
   renderRows();
+});
+
+nextCompassBtn.addEventListener('click', () => {
+  const row = rows.find(r => r.id === modalTargetRowId);
+  if (row) row.sprite = modalSprite;
+  renderRows();
+
+  const idx = rows.findIndex(r => r.id === modalTargetRowId);
+  const next = rows[idx + 1];
+  if (next) {
+    openSpriteModal(next.id);
+  } else {
+    closeSpriteModal();
+  }
 });
 
 closeModalBtn.addEventListener('click', () => {
