@@ -132,7 +132,7 @@ document.addEventListener('mousemove', e => {
   const dz = e.clientY - cy;
   if (Math.hypot(dx, dz) < 4) return;
   const angle = Math.atan2(dz, dx);
-  let sprite = Math.round(angle * 32 / (2 * Math.PI) - 17.5 - 8);
+  let sprite = Math.round(angle * 32 / (2 * Math.PI) - 17.5 + 8);
   sprite = ((sprite % 32) + 32) % 32;
   if (sprite !== modalSprite) {
     modalSprite = sprite;
