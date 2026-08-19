@@ -103,7 +103,7 @@ confirmSpriteBtn.addEventListener('click', () => {
   renderRows();
 });
 
-nextCompassBtn.addEventListener('click', () => {
+function advanceCompass() {
   const row = rows.find(r => r.id === modalTargetRowId);
   if (row) row.sprite = modalSprite;
   renderRows();
@@ -115,10 +115,37 @@ nextCompassBtn.addEventListener('click', () => {
   } else {
     closeSpriteModal();
   }
-});
+}
+
+nextCompassBtn.addEventListener('click', advanceCompass);
 
 closeModalBtn.addEventListener('click', () => {
   closeSpriteModal();
+});
+
+document.addEventListener('mousemove', e => {
+  if (!spriteModal.classList.contains('open')) return;
+  const rect = compassImg.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = e.clientX - cx;
+  const dz = e.clientY - cy;
+  if (Math.hypot(dx, dz) < 4) return;
+  const angle = Math.atan2(dz, dx);
+  let sprite = Math.round(angle * 32 / (2 * Math.PI) - 17.5);
+  sprite = ((sprite % 32) + 32) % 32;
+  if (sprite !== modalSprite) {
+    modalSprite = sprite;
+    renderCompass();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (!spriteModal.classList.contains('open')) return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    advanceCompass();
+  }
 });
 
 addRowBtn.addEventListener('click', () => addRow());
