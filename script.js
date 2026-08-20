@@ -29,13 +29,15 @@ function renderRows() {
     div.className = 'row';
     div.dataset.id = row.id;
     div.innerHTML =
-      '<div class="coord"><label>X</label><input type="number" class="in-x" value="' + row.x + '"></div>' +
-      '<div class="coord"><label>Z</label><input type="number" class="in-z" value="' + row.z + '"></div>' +
+      '<button class="remove-row" title="Remove">&times;</button>' +
       '<div class="sprite-picker">' +
         '<img src="' + spritePath(row.sprite) + '">' +
         '<span>#' + String(row.sprite).padStart(2, '0') + '</span>' +
       '</div>' +
-      '<button class="remove-row" title="Remove">&times;</button>';
+      '<div class="xz-line">' +
+        '<div class="coord"><label>X</label><input type="number" class="in-x" value="' + row.x + '"></div>' +
+        '<div class="coord"><label>Z</label><input type="number" class="in-z" value="' + row.z + '"></div>' +
+      '</div>';
     rowsEl.appendChild(div);
   });
 }
