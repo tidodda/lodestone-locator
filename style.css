@@ -332,3 +332,34 @@ footer a {
 footer a:hover {
   color: #fff;
 }
+
+.import-fields {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin: 8px 0;
+}
+
+.import-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 9px;
+  color: #777;
+}
+
+.import-fields input[type="number"] {
+  width: 64px;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  color: #e0e0e0;
+  border-radius: 4px;
+  padding: 5px 6px;
+  font-size: 12px;
+}
+
+.import-fields input[type="number"]:focus {
+  outline: none;
+  border-color: #666;
+}
