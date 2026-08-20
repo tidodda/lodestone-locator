@@ -5,10 +5,6 @@ const resultPanel = document.getElementById('resultPanel');
 const spriteModal = document.getElementById('spriteModal');
 const compassImg = document.getElementById('compassImg');
 const compassLabel = document.getElementById('compassLabel');
-const spritePrevBtn = document.getElementById('spritePrev');
-const spriteNextBtn = document.getElementById('spriteNext');
-const confirmSpriteBtn = document.getElementById('confirmSprite');
-const nextCompassBtn = document.getElementById('nextCompass');
 const closeModalBtn = document.getElementById('closeModal');
 
 let rows = [];
@@ -86,23 +82,6 @@ function closeSpriteModal() {
   modalTargetRowId = null;
 }
 
-spritePrevBtn.addEventListener('click', () => {
-  modalSprite = (modalSprite + 31) % 32;
-  renderCompass();
-});
-
-spriteNextBtn.addEventListener('click', () => {
-  modalSprite = (modalSprite + 1) % 32;
-  renderCompass();
-});
-
-confirmSpriteBtn.addEventListener('click', () => {
-  const row = rows.find(r => r.id === modalTargetRowId);
-  if (row) row.sprite = modalSprite;
-  closeSpriteModal();
-  renderRows();
-});
-
 function advanceCompass() {
   const row = rows.find(r => r.id === modalTargetRowId);
   if (row) row.sprite = modalSprite;
@@ -116,8 +95,6 @@ function advanceCompass() {
     closeSpriteModal();
   }
 }
-
-nextCompassBtn.addEventListener('click', advanceCompass);
 
 closeModalBtn.addEventListener('click', () => {
   closeSpriteModal();
