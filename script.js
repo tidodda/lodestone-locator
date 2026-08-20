@@ -681,6 +681,7 @@ async function readCompassesFromImage(sourceCanvas, cols, rows_) {
   for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) offsets.push([dx, dy]);
   const nCells = cols * rows_;
   const votes = Array.from({ length: nCells }, () => []);
+  let lastCells = null;
 
   for (const [dx, dy] of offsets) {
     const cb = colBounds.map(c => c + dx);
@@ -689,17 +690,45 @@ async function readCompassesFromImage(sourceCanvas, cols, rows_) {
     for (let r = 0; r < rows_; r++) for (let c = 0; c < cols; c++) {
       cells.push(importCropCell(sourceCanvas, cb[c], rb[r], cb[c + 1], rb[r + 1], 1));
     }
+    if (dx === 0 && dy === 0) lastCells = cells;
     for (let i = 0; i < cells.length; i++) votes[i].push(importMatchCell(cells[i], importRefCanvases));
   }
 
   const results = votes.map(v => importMode(v));
-  return { results };
+  return { results, cells: lastCells };
 }
 
-// ---- wiring: pick a file, it sets the sprites ----
+// ---- wiring: pick a file, it sets the sprites and shows a review grid ----
 const importAmountEl = document.getElementById('importAmount');
 const importColsEl = document.getElementById('importCols');
 const importFileEl = document.getElementById('importFile');
+const importGridEl = document.getElementById('importGrid');
+
+function renderImportGrid(cells, results, cols) {
+  importGridEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  importGridEl.innerHTML = '';
+  cells.forEach((cellCanvas, i) => {
+    const div = document.createElement('div');
+    div.className = 'import-cell';
+
+    const shot = document.createElement('canvas');
+    shot.width = cellCanvas.width; shot.height = cellCanvas.height;
+    shot.getContext('2d').drawImage(cellCanvas, 0, 0);
+
+    const ref = document.createElement('img');
+    ref.className = 'ref';
+    ref.src = spritePath(results[i].value);
+
+    const num = document.createElement('div');
+    num.className = 'num';
+    num.textContent = '#' + String(results[i].value).padStart(2, '0');
+
+    div.appendChild(shot);
+    div.appendChild(ref);
+    div.appendChild(num);
+    importGridEl.appendChild(div);
+  });
+}
 
 if (importFileEl) {
   importFileEl.addEventListener('change', async () => {
@@ -721,10 +750,11 @@ if (importFileEl) {
     srcCanvas.height = img.height;
     srcCanvas.getContext('2d').drawImage(img, 0, 0);
 
-    const { results } = await readCompassesFromImage(srcCanvas, cols, rows_);
-    const trimmed = results.slice(0, amount);
+    const { results, cells } = await readCompassesFromImage(srcCanvas, cols, rows_);
+    const trimmedResults = results.slice(0, amount);
+    const trimmedCells = cells.slice(0, amount);
 
-    const newRows = trimmed.map((res, i) => {
+    const newRows = trimmedResults.map((res, i) => {
       const existing = rows[i];
       return {
         id: existing ? existing.id : nextId++,
@@ -735,6 +765,7 @@ if (importFileEl) {
     });
     rows = newRows;
     renderRows();
+    renderImportGrid(trimmedCells, trimmedResults, cols);
     importFileEl.value = '';
   });
 }
