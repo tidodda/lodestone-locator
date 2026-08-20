@@ -476,3 +476,389 @@ copyJsonBtn.addEventListener('click', () => {
   copyJsonBtn.textContent = 'Copied';
   setTimeout(() => { copyJsonBtn.textContent = original; }, 1200);
 });
+
+// ============================================================
+// Import sprite readings from an inventory screenshot.
+// Reads a grid of compass icons, matches each against the 32
+// reference sprites in compass_textures/, and writes the result
+// straight into `sprite` on each row (creating rows as needed).
+// ============================================================
+
+const REF_SIZE = 32;
+let importRefCanvases = null; // ImageData[] at REF_SIZE, lazy-loaded once
+let importSrcCanvas = null;
+let importSrcImage = null;
+
+function loadImageAsync(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+
+function canvasImageData(canvas) {
+  return canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+}
+
+// Lanczos-3 resize — much closer to a proper downsample/upsample than the
+// browser's default canvas scaling, which matters a lot when matching
+// against 16x16 source textures.
+function lanczosKernel(x, a) {
+  if (x === 0) return 1;
+  if (x <= -a || x >= a) return 0;
+  const px = Math.PI * x;
+  return (a * Math.sin(px) * Math.sin(px / a)) / (px * px);
+}
+function lanczosResize(srcData, srcW, srcH, dstW, dstH) {
+  const a = 3;
+  const tmp = new Float64Array(srcH * dstW * 4);
+  const scaleX = srcW / dstW, filterScaleX = Math.max(1, scaleX), supportX = a * filterScaleX;
+  for (let dx = 0; dx < dstW; dx++) {
+    const srcX = (dx + 0.5) * scaleX - 0.5;
+    const left = Math.floor(srcX - supportX), right = Math.ceil(srcX + supportX);
+    const weights = []; let wsum = 0;
+    for (let sx = left; sx <= right; sx++) {
+      const w = lanczosKernel((sx - srcX) / filterScaleX, a);
+      if (w !== 0) { weights.push([sx, w]); wsum += w; }
+    }
+    for (let sy = 0; sy < srcH; sy++) {
+      let r = 0, g = 0, b = 0, al = 0;
+      for (const [sx, w] of weights) {
+        const cx = Math.min(srcW - 1, Math.max(0, sx));
+        const idx = (sy * srcW + cx) * 4;
+        r += srcData[idx] * w; g += srcData[idx + 1] * w; b += srcData[idx + 2] * w; al += srcData[idx + 3] * w;
+      }
+      const o = (sy * dstW + dx) * 4;
+      tmp[o] = r / wsum; tmp[o + 1] = g / wsum; tmp[o + 2] = b / wsum; tmp[o + 3] = al / wsum;
+    }
+  }
+  const out = new Uint8ClampedArray(dstW * dstH * 4);
+  const scaleY = srcH / dstH, filterScaleY = Math.max(1, scaleY), supportY = a * filterScaleY;
+  for (let dy = 0; dy < dstH; dy++) {
+    const srcY = (dy + 0.5) * scaleY - 0.5;
+    const top = Math.floor(srcY - supportY), bottom = Math.ceil(srcY + supportY);
+    const weights = []; let wsum = 0;
+    for (let sy = top; sy <= bottom; sy++) {
+      const w = lanczosKernel((sy - srcY) / filterScaleY, a);
+      if (w !== 0) { weights.push([sy, w]); wsum += w; }
+    }
+    for (let dx = 0; dx < dstW; dx++) {
+      let r = 0, g = 0, b = 0, al = 0;
+      for (const [sy, w] of weights) {
+        const cy = Math.min(srcH - 1, Math.max(0, sy));
+        const idx = (cy * dstW + dx) * 4;
+        r += tmp[idx] * w; g += tmp[idx + 1] * w; b += tmp[idx + 2] * w; al += tmp[idx + 3] * w;
+      }
+      const o = (dy * dstW + dx) * 4;
+      out[o] = r / wsum; out[o + 1] = g / wsum; out[o + 2] = b / wsum; out[o + 3] = al / wsum;
+    }
+  }
+  return new ImageData(out, dstW, dstH);
+}
+
+async function buildImportRefCanvases() {
+  const out = [];
+  for (let i = 0; i < 32; i++) {
+    const img = await loadImageAsync(spritePath(i));
+    const raw = document.createElement('canvas');
+    raw.width = img.width; raw.height = img.height;
+    raw.getContext('2d').drawImage(img, 0, 0);
+    const rawData = canvasImageData(raw);
+    out.push(lanczosResize(rawData.data, img.width, img.height, REF_SIZE, REF_SIZE));
+  }
+  return out;
+}
+
+// ---- grid-line detection: fit evenly-spaced lines to the darkest columns/rows ----
+function grayColumnProfile(imgData, w, h) {
+  const { data } = imgData;
+  const y0 = Math.floor(h * 0.1), y1 = Math.floor(h * 0.9);
+  const profile = new Float64Array(w);
+  for (let x = 0; x < w; x++) {
+    let sum = 0, n = 0;
+    for (let y = y0; y < y1; y++) { const idx = (y * w + x) * 4; sum += (data[idx] + data[idx + 1] + data[idx + 2]) / 3; n++; }
+    profile[x] = sum / n;
+  }
+  return profile;
+}
+function grayRowProfile(imgData, w, h) {
+  const { data } = imgData;
+  const x0 = Math.floor(w * 0.1), x1 = Math.floor(w * 0.9);
+  const profile = new Float64Array(h);
+  for (let y = 0; y < h; y++) {
+    let sum = 0, n = 0;
+    for (let x = x0; x < x1; x++) { const idx = (y * w + x) * 4; sum += (data[idx] + data[idx + 1] + data[idx + 2]) / 3; n++; }
+    profile[y] = sum / n;
+  }
+  return profile;
+}
+function findGridLines(profile, expectedCount) {
+  const n = profile.length;
+  let best = null;
+  const minSpacing = n / (expectedCount + 3), maxSpacing = n / expectedCount;
+  for (let spacing = minSpacing; spacing < maxSpacing; spacing += 0.1) {
+    const maxOffset = n - spacing * expectedCount;
+    if (maxOffset <= 0) continue;
+    for (let offset = 0; offset < maxOffset; offset += 0.5) {
+      let score = 0, ok = true;
+      for (let i = 0; i <= expectedCount; i++) {
+        const pos = Math.round(offset + i * spacing);
+        if (pos >= n) { ok = false; break; }
+        score += profile[pos];
+      }
+      if (!ok) continue;
+      if (best === null || score < best.score) best = { score, offset, spacing };
+    }
+  }
+  if (!best) throw new Error('Could not fit a grid to this image.');
+  const bounds = [];
+  for (let i = 0; i <= expectedCount; i++) bounds.push(Math.round(best.offset + i * best.spacing));
+  return bounds.map(b => {
+    const lo = Math.max(0, b - 2), hi = Math.min(n, b + 3);
+    let bestX = lo, bestV = Infinity;
+    for (let x = lo; x < hi; x++) if (profile[x] < bestV) { bestV = profile[x]; bestX = x; }
+    return bestX;
+  });
+}
+function importAutoGrid(imgData, w, h, cols, rows_) {
+  return {
+    colBounds: findGridLines(grayColumnProfile(imgData, w, h), cols),
+    rowBounds: findGridLines(grayRowProfile(imgData, w, h), rows_),
+  };
+}
+
+function importCropCell(srcCanvas, x0, y0, x1, y1, inset) {
+  const w = (x1 - x0) - inset * 2, h = (y1 - y0) - inset * 2;
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, w); c.height = Math.max(1, h);
+  c.getContext('2d').drawImage(srcCanvas, x0 + inset, y0 + inset, w, h, 0, 0, w, h);
+  return c;
+}
+
+function importMatchCell(cellCanvas, refs) {
+  const raw = canvasImageData(cellCanvas);
+  const cellData = lanczosResize(raw.data, cellCanvas.width, cellCanvas.height, REF_SIZE, REF_SIZE);
+  const d = cellData.data;
+  const corners = [0, (REF_SIZE - 1) * 4, ((REF_SIZE - 1) * REF_SIZE) * 4, ((REF_SIZE - 1) * REF_SIZE + (REF_SIZE - 1)) * 4];
+  let bg = [0, 0, 0];
+  for (const off of corners) { bg[0] += d[off]; bg[1] += d[off + 1]; bg[2] += d[off + 2]; }
+  bg = bg.map(v => v / 4);
+  let bestIdx = -1, bestScore = Infinity;
+  for (let i = 0; i < refs.length; i++) {
+    const r = refs[i].data;
+    let score = 0;
+    for (let p = 0; p < d.length; p += 4) {
+      const a = r[p + 3] / 255;
+      for (let ch = 0; ch < 3; ch++) {
+        const comp = r[p + ch] * a + bg[ch] * (1 - a);
+        const diff = comp - d[p + ch];
+        score += diff * diff;
+      }
+    }
+    if (score < bestScore) { bestScore = score; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+// Independent geometric cross-check (measures the needle's own angle,
+// completely separate from pixel matching) using the exact same formula
+// script.js's own sprite modal uses: sprite = round(angle*32/2pi - 17.5 + 8)
+function importAngleGuess(cellCanvas) {
+  const ctx = cellCanvas.getContext('2d');
+  const { data, width: w, height: h } = ctx.getImageData(0, 0, cellCanvas.width, cellCanvas.height);
+  const corners = [0, (w - 1) * 4, ((h - 1) * w) * 4, ((h - 1) * w + (w - 1)) * 4];
+  let bg = [0, 0, 0];
+  for (const off of corners) { bg[0] += data[off]; bg[1] += data[off + 1]; bg[2] += data[off + 2]; }
+  bg = bg.map(v => v / 4);
+  let minX = w, maxX = -1, minY = h, maxY = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = (y * w + x) * 4;
+    const diff = Math.abs(data[p] - bg[0]) + Math.abs(data[p + 1] - bg[1]) + Math.abs(data[p + 2] - bg[2]);
+    if (diff > 40) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
+  }
+  if (maxX < 0) return null;
+  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  let sx = 0, sy = 0, stotal = 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const p = (y * w + x) * 4;
+    const redness = Math.max(0, data[p] - Math.max(data[p + 1], data[p + 2]));
+    if (redness > 0) { sx += x * redness; sy += y * redness; stotal += redness; }
+  }
+  if (stotal === 0) return null;
+  const mx = sx / stotal, my = sy / stotal;
+  const bearing = ((Math.atan2(mx - cx, -(my - cy)) * 180 / Math.PI) + 360) % 360;
+  return Math.round((bearing - 180) / 11.25 + 32) % 32;
+}
+function circDist32(a, b) { const d = Math.abs(a - b) % 32; return Math.min(d, 32 - d); }
+
+function importMode(arr) {
+  const counts = new Map();
+  for (const v of arr) counts.set(v, (counts.get(v) || 0) + 1);
+  let bestV = arr[0], bestC = 0;
+  for (const [v, c] of counts) if (c > bestC) { bestC = c; bestV = v; }
+  return { value: bestV, confidence: bestC / arr.length };
+}
+
+async function readCompassesFromImage(sourceCanvas, cols, rows_, onStatus) {
+  const w = sourceCanvas.width, h = sourceCanvas.height;
+  const imgData = canvasImageData(sourceCanvas);
+  onStatus && onStatus('Detecting grid…');
+  const { colBounds, rowBounds } = importAutoGrid(imgData, w, h, cols, rows_);
+
+  onStatus && onStatus('Loading reference sprites…');
+  if (!importRefCanvases) importRefCanvases = await buildImportRefCanvases();
+
+  onStatus && onStatus('Matching icons…');
+  const offsets = [];
+  for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) offsets.push([dx, dy]);
+  const nCells = cols * rows_;
+  const votes = Array.from({ length: nCells }, () => []);
+  let lastCells = null;
+
+  for (const [dx, dy] of offsets) {
+    const cb = colBounds.map(c => c + dx);
+    const rb = rowBounds.map(r => r + dy);
+    const cells = [];
+    for (let r = 0; r < rows_; r++) for (let c = 0; c < cols; c++) {
+      cells.push(importCropCell(sourceCanvas, cb[c], rb[r], cb[c + 1], rb[r + 1], 1));
+    }
+    if (dx === 0 && dy === 0) lastCells = cells;
+    for (let i = 0; i < cells.length; i++) votes[i].push(importMatchCell(cells[i], importRefCanvases));
+  }
+
+  const results = votes.map((v, i) => {
+    const m = importMode(v);
+    const angleGuess = importAngleGuess(lastCells[i]);
+    m.crossCheckAgrees = angleGuess === null || circDist32(angleGuess, m.value) <= 2;
+    m.angleGuess = angleGuess;
+    return m;
+  });
+  return { results, cells: lastCells };
+}
+
+// ---- wiring: file input, grid overlay preview, amount input, apply button ----
+const importAmountEl = document.getElementById('importAmount');
+const importColsEl = document.getElementById('importCols');
+const importFileEl = document.getElementById('importFile');
+const importDropzoneEl = document.getElementById('importDropzone');
+const importPreviewWrap = document.getElementById('importPreviewWrap');
+const importPreviewImg = document.getElementById('importPreviewImg');
+const importOverlay = document.getElementById('importOverlay');
+const importRunBtn = document.getElementById('importRun');
+const importStatusEl = document.getElementById('importStatus');
+
+function importGridDims() {
+  const amount = Math.max(1, parseInt(importAmountEl.value, 10) || 0);
+  const cols = Math.max(1, parseInt(importColsEl.value, 10) || 9);
+  const rows_ = Math.ceil(amount / cols);
+  return { amount, cols, rows_ };
+}
+
+function updateImportOverlay() {
+  if (!importSrcImage) return;
+  const { cols, rows_ } = importGridDims();
+  if (!importSrcCanvas) {
+    importSrcCanvas = document.createElement('canvas');
+    importSrcCanvas.width = importSrcImage.width;
+    importSrcCanvas.height = importSrcImage.height;
+    importSrcCanvas.getContext('2d').drawImage(importSrcImage, 0, 0);
+  }
+  const imgData = canvasImageData(importSrcCanvas);
+  let colBounds, rowBounds;
+  try {
+    ({ colBounds, rowBounds } = importAutoGrid(imgData, importSrcCanvas.width, importSrcCanvas.height, cols, rows_));
+  } catch (e) { return; }
+
+  const dw = importPreviewImg.clientWidth, dh = importPreviewImg.clientHeight;
+  if (!dw || !dh) return;
+  importOverlay.width = dw; importOverlay.height = dh;
+  importOverlay.style.width = dw + 'px'; importOverlay.style.height = dh + 'px';
+  const sx = dw / importSrcCanvas.width, sy = dh / importSrcCanvas.height;
+  const octx = importOverlay.getContext('2d');
+  octx.clearRect(0, 0, dw, dh);
+  octx.strokeStyle = 'rgba(255, 210, 60, 0.9)';
+  octx.lineWidth = 1;
+  colBounds.forEach(x => { octx.beginPath(); octx.moveTo(x * sx + 0.5, 0); octx.lineTo(x * sx + 0.5, dh); octx.stroke(); });
+  rowBounds.forEach(y => { octx.beginPath(); octx.moveTo(0, y * sy + 0.5); octx.lineTo(dw, y * sy + 0.5); octx.stroke(); });
+}
+
+if (importFileEl) {
+  importDropzoneEl.addEventListener('click', () => importFileEl.click());
+  importDropzoneEl.addEventListener('dragover', e => { e.preventDefault(); importDropzoneEl.classList.add('drag'); });
+  importDropzoneEl.addEventListener('dragleave', () => importDropzoneEl.classList.remove('drag'));
+  importDropzoneEl.addEventListener('drop', e => {
+    e.preventDefault();
+    importDropzoneEl.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleImportFile(e.dataTransfer.files[0]);
+  });
+  importFileEl.addEventListener('change', () => { if (importFileEl.files.length) handleImportFile(importFileEl.files[0]); });
+
+  function handleImportFile(file) {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      importPreviewImg.src = e.target.result;
+      importPreviewWrap.style.display = 'block';
+      importSrcImage = await loadImageAsync(e.target.result);
+      importSrcCanvas = null;
+      importRunBtn.disabled = false;
+      importStatusEl.textContent = `Loaded ${importSrcImage.width}×${importSrcImage.height} image. Check the grid lines line up, then click Import.`;
+      importPreviewImg.onload = updateImportOverlay;
+      requestAnimationFrame(updateImportOverlay);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  importAmountEl.addEventListener('input', updateImportOverlay);
+  importColsEl.addEventListener('input', updateImportOverlay);
+  window.addEventListener('resize', updateImportOverlay);
+
+  importRunBtn.addEventListener('click', async () => {
+    if (!importSrcImage) return;
+    importRunBtn.disabled = true;
+    const { amount, cols, rows_ } = importGridDims();
+
+    const srcCanvas = document.createElement('canvas');
+    srcCanvas.width = importSrcImage.width;
+    srcCanvas.height = importSrcImage.height;
+    srcCanvas.getContext('2d').drawImage(importSrcImage, 0, 0);
+    importSrcCanvas = srcCanvas;
+
+    try {
+      const { results } = await readCompassesFromImage(srcCanvas, cols, rows_, msg => importStatusEl.textContent = msg);
+      const trimmed = results.slice(0, amount);
+
+      const newRows = [];
+      const uncertainRows = [];
+      trimmed.forEach((res, i) => {
+        const existing = rows[i];
+        newRows.push({
+          id: existing ? existing.id : nextId++,
+          x: existing ? existing.x : '',
+          z: existing ? existing.z : '',
+          sprite: res.value
+        });
+        if (!res.crossCheckAgrees || res.confidence < 0.4) uncertainRows.push(i + 1);
+      });
+      rows = newRows;
+      renderRows();
+
+      importStatusEl.textContent = uncertainRows.length
+        ? `Imported ${trimmed.length} sprites. Rows worth double-checking (click their compass to fix by hand): ${uncertainRows.join(', ')}.`
+        : `Imported ${trimmed.length} sprites — all matched confidently.`;
+
+      if (uncertainRows.length) {
+        uncertainRows.forEach(rowNum => {
+          const div = rowsEl.children[rowNum - 1];
+          if (div) div.classList.add('row-uncertain');
+        });
+      }
+    } catch (err) {
+      importStatusEl.textContent = 'Error: ' + err.message;
+      console.error(err);
+    } finally {
+      importRunBtn.disabled = false;
+    }
+  });
+}
