@@ -41,11 +41,23 @@ h1 {
   color: #888;
 }
 
+#rows {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
 .row {
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 4px;
-  margin-bottom: 4px;
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 5px;
+  padding: 6px 4px 5px;
 }
 
 .row label {
@@ -55,22 +67,31 @@ h1 {
   margin-bottom: 1px;
 }
 
+.xz-line {
+  display: flex;
+  gap: 3px;
+  width: 100%;
+}
+
 .row .coord {
-  width: 65px;
+  width: 0;
+  flex: 1;
+  text-align: center;
 }
 
 .row input,
 .json-box textarea {
-  background: #1a1a1a;
+  background: #111;
   border: 1px solid #3a3a3a;
   color: #e0e0e0;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .row input {
-  padding: 5px 6px;
+  padding: 4px 2px;
   width: 100%;
+  text-align: center;
 }
 
 .row input:focus {
@@ -80,14 +101,15 @@ h1 {
 
 .sprite-picker {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 2px;
   cursor: pointer;
-  background: #1a1a1a;
+  background: #111;
   border: 1px solid #3a3a3a;
   border-radius: 4px;
-  padding: 5px 7px;
-  flex: 1;
+  padding: 4px;
+  width: 100%;
 }
 
 .sprite-picker:hover {
@@ -95,23 +117,27 @@ h1 {
 }
 
 .sprite-picker img {
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   image-rendering: pixelated;
 }
 
 .sprite-picker span {
-  font-size: 12px;
+  font-size: 10px;
   color: #ccc;
+  font-family: monospace;
 }
 
 .remove-row {
+  position: absolute;
+  top: 2px;
+  right: 3px;
   background: none;
   border: none;
   color: #a55;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
-  padding: 0 3px;
+  padding: 0 2px;
   line-height: 1;
 }
 
@@ -383,7 +409,7 @@ footer a:hover {
 .import-cell canvas,
 .import-cell img {
   width: 100%;
-  aspect-ratio: 1;
+  height: auto;
   image-rendering: pixelated;
   display: block;
   border-radius: 2px;
