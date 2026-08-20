@@ -41,23 +41,11 @@ h1 {
   color: #888;
 }
 
-#rows {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
 .row {
-  position: relative;
   display: flex;
-  flex-direction: column;
   align-items: center;
   gap: 4px;
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  border-radius: 5px;
-  padding: 6px 4px 5px;
+  margin-bottom: 4px;
 }
 
 .row label {
@@ -67,31 +55,22 @@ h1 {
   margin-bottom: 1px;
 }
 
-.xz-line {
-  display: flex;
-  gap: 3px;
-  width: 100%;
-}
-
 .row .coord {
-  width: 0;
-  flex: 1;
-  text-align: center;
+  width: 65px;
 }
 
 .row input,
 .json-box textarea {
-  background: #111;
+  background: #1a1a1a;
   border: 1px solid #3a3a3a;
   color: #e0e0e0;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .row input {
-  padding: 4px 2px;
+  padding: 5px 6px;
   width: 100%;
-  text-align: center;
 }
 
 .row input:focus {
@@ -101,15 +80,14 @@ h1 {
 
 .sprite-picker {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 5px;
   cursor: pointer;
-  background: #111;
+  background: #1a1a1a;
   border: 1px solid #3a3a3a;
   border-radius: 4px;
-  padding: 4px;
-  width: 100%;
+  padding: 5px 7px;
+  flex: 1;
 }
 
 .sprite-picker:hover {
@@ -117,27 +95,23 @@ h1 {
 }
 
 .sprite-picker img {
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   image-rendering: pixelated;
 }
 
 .sprite-picker span {
-  font-size: 10px;
+  font-size: 12px;
   color: #ccc;
-  font-family: monospace;
 }
 
 .remove-row {
-  position: absolute;
-  top: 2px;
-  right: 3px;
   background: none;
   border: none;
   color: #a55;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 0 2px;
+  padding: 0 3px;
   line-height: 1;
 }
 
@@ -357,72 +331,4 @@ footer a {
 
 footer a:hover {
   color: #fff;
-}
-
-/* --- Import from screenshot --- */
-
-.import-fields {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  margin: 8px 0;
-}
-
-.import-fields label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 9px;
-  color: #777;
-}
-
-.import-fields input[type="number"] {
-  width: 64px;
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  color: #e0e0e0;
-  border-radius: 4px;
-  padding: 5px 6px;
-  font-size: 12px;
-}
-
-.import-fields input[type="number"]:focus {
-  outline: none;
-  border-color: #666;
-}
-
-.import-grid {
-  display: grid;
-  gap: 3px;
-  margin-top: 8px;
-}
-
-.import-cell {
-  background: #1a1a1a;
-  border: 1px solid #3a3a3a;
-  border-radius: 3px;
-  padding: 2px;
-  text-align: center;
-}
-
-.import-cell canvas,
-.import-cell img {
-  width: 100%;
-  height: auto;
-  image-rendering: pixelated;
-  display: block;
-  border-radius: 2px;
-}
-
-.import-cell .ref {
-  margin-top: 2px;
-  background: #111;
-}
-
-.import-cell .num {
-  font-size: 8px;
-  color: #777;
-  font-family: monospace;
-  margin-top: 1px;
 }
