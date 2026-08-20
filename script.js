@@ -662,37 +662,6 @@ function importMatchCell(cellCanvas, refs) {
   return bestIdx;
 }
 
-// Independent geometric cross-check (measures the needle's own angle,
-// completely separate from pixel matching) using the exact same formula
-// script.js's own sprite modal uses: sprite = round(angle*32/2pi - 17.5 + 8)
-function importAngleGuess(cellCanvas) {
-  const ctx = cellCanvas.getContext('2d');
-  const { data, width: w, height: h } = ctx.getImageData(0, 0, cellCanvas.width, cellCanvas.height);
-  const corners = [0, (w - 1) * 4, ((h - 1) * w) * 4, ((h - 1) * w + (w - 1)) * 4];
-  let bg = [0, 0, 0];
-  for (const off of corners) { bg[0] += data[off]; bg[1] += data[off + 1]; bg[2] += data[off + 2]; }
-  bg = bg.map(v => v / 4);
-  let minX = w, maxX = -1, minY = h, maxY = -1;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const p = (y * w + x) * 4;
-    const diff = Math.abs(data[p] - bg[0]) + Math.abs(data[p + 1] - bg[1]) + Math.abs(data[p + 2] - bg[2]);
-    if (diff > 40) { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y; }
-  }
-  if (maxX < 0) return null;
-  const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-  let sx = 0, sy = 0, stotal = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const p = (y * w + x) * 4;
-    const redness = Math.max(0, data[p] - Math.max(data[p + 1], data[p + 2]));
-    if (redness > 0) { sx += x * redness; sy += y * redness; stotal += redness; }
-  }
-  if (stotal === 0) return null;
-  const mx = sx / stotal, my = sy / stotal;
-  const bearing = ((Math.atan2(mx - cx, -(my - cy)) * 180 / Math.PI) + 360) % 360;
-  return Math.round((bearing - 180) / 11.25 + 32) % 32;
-}
-function circDist32(a, b) { const d = Math.abs(a - b) % 32; return Math.min(d, 32 - d); }
-
 function importMode(arr) {
   const counts = new Map();
   for (const v of arr) counts.set(v, (counts.get(v) || 0) + 1);
@@ -701,21 +670,17 @@ function importMode(arr) {
   return { value: bestV, confidence: bestC / arr.length };
 }
 
-async function readCompassesFromImage(sourceCanvas, cols, rows_, onStatus) {
+async function readCompassesFromImage(sourceCanvas, cols, rows_) {
   const w = sourceCanvas.width, h = sourceCanvas.height;
   const imgData = canvasImageData(sourceCanvas);
-  onStatus && onStatus('Detecting grid…');
   const { colBounds, rowBounds } = importAutoGrid(imgData, w, h, cols, rows_);
 
-  onStatus && onStatus('Loading reference sprites…');
   if (!importRefCanvases) importRefCanvases = await buildImportRefCanvases();
 
-  onStatus && onStatus('Matching icons…');
   const offsets = [];
   for (const dx of [-1, 0, 1]) for (const dy of [-1, 0, 1]) offsets.push([dx, dy]);
   const nCells = cols * rows_;
   const votes = Array.from({ length: nCells }, () => []);
-  let lastCells = null;
 
   for (const [dx, dy] of offsets) {
     const cb = colBounds.map(c => c + dx);
@@ -724,141 +689,52 @@ async function readCompassesFromImage(sourceCanvas, cols, rows_, onStatus) {
     for (let r = 0; r < rows_; r++) for (let c = 0; c < cols; c++) {
       cells.push(importCropCell(sourceCanvas, cb[c], rb[r], cb[c + 1], rb[r + 1], 1));
     }
-    if (dx === 0 && dy === 0) lastCells = cells;
     for (let i = 0; i < cells.length; i++) votes[i].push(importMatchCell(cells[i], importRefCanvases));
   }
 
-  const results = votes.map((v, i) => {
-    const m = importMode(v);
-    const angleGuess = importAngleGuess(lastCells[i]);
-    m.crossCheckAgrees = angleGuess === null || circDist32(angleGuess, m.value) <= 2;
-    m.angleGuess = angleGuess;
-    return m;
-  });
-  return { results, cells: lastCells };
+  const results = votes.map(v => importMode(v));
+  return { results };
 }
 
-// ---- wiring: file input, grid overlay preview, amount input, apply button ----
+// ---- wiring: pick a file, it sets the sprites ----
 const importAmountEl = document.getElementById('importAmount');
 const importColsEl = document.getElementById('importCols');
 const importFileEl = document.getElementById('importFile');
-const importDropzoneEl = document.getElementById('importDropzone');
-const importPreviewWrap = document.getElementById('importPreviewWrap');
-const importPreviewImg = document.getElementById('importPreviewImg');
-const importOverlay = document.getElementById('importOverlay');
-const importRunBtn = document.getElementById('importRun');
-const importStatusEl = document.getElementById('importStatus');
-
-function importGridDims() {
-  const amount = Math.max(1, parseInt(importAmountEl.value, 10) || 0);
-  const cols = Math.max(1, parseInt(importColsEl.value, 10) || 9);
-  const rows_ = Math.ceil(amount / cols);
-  return { amount, cols, rows_ };
-}
-
-function updateImportOverlay() {
-  if (!importSrcImage) return;
-  const { cols, rows_ } = importGridDims();
-  if (!importSrcCanvas) {
-    importSrcCanvas = document.createElement('canvas');
-    importSrcCanvas.width = importSrcImage.width;
-    importSrcCanvas.height = importSrcImage.height;
-    importSrcCanvas.getContext('2d').drawImage(importSrcImage, 0, 0);
-  }
-  const imgData = canvasImageData(importSrcCanvas);
-  let colBounds, rowBounds;
-  try {
-    ({ colBounds, rowBounds } = importAutoGrid(imgData, importSrcCanvas.width, importSrcCanvas.height, cols, rows_));
-  } catch (e) { return; }
-
-  const dw = importPreviewImg.clientWidth, dh = importPreviewImg.clientHeight;
-  if (!dw || !dh) return;
-  importOverlay.width = dw; importOverlay.height = dh;
-  importOverlay.style.width = dw + 'px'; importOverlay.style.height = dh + 'px';
-  const sx = dw / importSrcCanvas.width, sy = dh / importSrcCanvas.height;
-  const octx = importOverlay.getContext('2d');
-  octx.clearRect(0, 0, dw, dh);
-  octx.strokeStyle = 'rgba(255, 210, 60, 0.9)';
-  octx.lineWidth = 1;
-  colBounds.forEach(x => { octx.beginPath(); octx.moveTo(x * sx + 0.5, 0); octx.lineTo(x * sx + 0.5, dh); octx.stroke(); });
-  rowBounds.forEach(y => { octx.beginPath(); octx.moveTo(0, y * sy + 0.5); octx.lineTo(dw, y * sy + 0.5); octx.stroke(); });
-}
 
 if (importFileEl) {
-  importDropzoneEl.addEventListener('click', () => importFileEl.click());
-  importDropzoneEl.addEventListener('dragover', e => { e.preventDefault(); importDropzoneEl.classList.add('drag'); });
-  importDropzoneEl.addEventListener('dragleave', () => importDropzoneEl.classList.remove('drag'));
-  importDropzoneEl.addEventListener('drop', e => {
-    e.preventDefault();
-    importDropzoneEl.classList.remove('drag');
-    if (e.dataTransfer.files.length) handleImportFile(e.dataTransfer.files[0]);
-  });
-  importFileEl.addEventListener('change', () => { if (importFileEl.files.length) handleImportFile(importFileEl.files[0]); });
+  importFileEl.addEventListener('change', async () => {
+    const file = importFileEl.files[0];
+    if (!file) return;
 
-  function handleImportFile(file) {
-    const reader = new FileReader();
-    reader.onload = async e => {
-      importPreviewImg.src = e.target.result;
-      importPreviewWrap.style.display = 'block';
-      importSrcImage = await loadImageAsync(e.target.result);
-      importSrcCanvas = null;
-      importRunBtn.disabled = false;
-      importStatusEl.textContent = `Loaded ${importSrcImage.width}×${importSrcImage.height} image. Check the grid lines line up, then click Import.`;
-      importPreviewImg.onload = updateImportOverlay;
-      requestAnimationFrame(updateImportOverlay);
-    };
-    reader.readAsDataURL(file);
-  }
+    const amount = Math.max(1, parseInt(importAmountEl.value, 10) || 0);
+    const cols = Math.max(1, parseInt(importColsEl.value, 10) || 9);
+    const rows_ = Math.ceil(amount / cols);
 
-  importAmountEl.addEventListener('input', updateImportOverlay);
-  importColsEl.addEventListener('input', updateImportOverlay);
-  window.addEventListener('resize', updateImportOverlay);
-
-  importRunBtn.addEventListener('click', async () => {
-    if (!importSrcImage) return;
-    importRunBtn.disabled = true;
-    const { amount, cols, rows_ } = importGridDims();
-
+    const dataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+    const img = await loadImageAsync(dataUrl);
     const srcCanvas = document.createElement('canvas');
-    srcCanvas.width = importSrcImage.width;
-    srcCanvas.height = importSrcImage.height;
-    srcCanvas.getContext('2d').drawImage(importSrcImage, 0, 0);
-    importSrcCanvas = srcCanvas;
+    srcCanvas.width = img.width;
+    srcCanvas.height = img.height;
+    srcCanvas.getContext('2d').drawImage(img, 0, 0);
 
-    try {
-      const { results } = await readCompassesFromImage(srcCanvas, cols, rows_, msg => importStatusEl.textContent = msg);
-      const trimmed = results.slice(0, amount);
+    const { results } = await readCompassesFromImage(srcCanvas, cols, rows_);
+    const trimmed = results.slice(0, amount);
 
-      const newRows = [];
-      const uncertainRows = [];
-      trimmed.forEach((res, i) => {
-        const existing = rows[i];
-        newRows.push({
-          id: existing ? existing.id : nextId++,
-          x: existing ? existing.x : '',
-          z: existing ? existing.z : '',
-          sprite: res.value
-        });
-        if (!res.crossCheckAgrees || res.confidence < 0.4) uncertainRows.push(i + 1);
-      });
-      rows = newRows;
-      renderRows();
-
-      importStatusEl.textContent = uncertainRows.length
-        ? `Imported ${trimmed.length} sprites. Rows worth double-checking (click their compass to fix by hand): ${uncertainRows.join(', ')}.`
-        : `Imported ${trimmed.length} sprites — all matched confidently.`;
-
-      if (uncertainRows.length) {
-        uncertainRows.forEach(rowNum => {
-          const div = rowsEl.children[rowNum - 1];
-          if (div) div.classList.add('row-uncertain');
-        });
-      }
-    } catch (err) {
-      importStatusEl.textContent = 'Error: ' + err.message;
-      console.error(err);
-    } finally {
-      importRunBtn.disabled = false;
-    }
+    const newRows = trimmed.map((res, i) => {
+      const existing = rows[i];
+      return {
+        id: existing ? existing.id : nextId++,
+        x: existing ? existing.x : '',
+        z: existing ? existing.z : '',
+        sprite: res.value
+      };
+    });
+    rows = newRows;
+    renderRows();
+    importFileEl.value = '';
   });
 }
