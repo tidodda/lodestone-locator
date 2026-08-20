@@ -5,56 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>tidodda's Lodestone Position Finder</title>
 <link rel="stylesheet" href="style.css">
-<style>
-  /* --- styles for the "Import from screenshot" section --- */
-  .import-box { margin-top: 12px; }
-  .import-box textarea { display: none; } /* not used, keeps json-box parity out */
-  .import-fields {
-    display: flex;
-    gap: 14px;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    margin: 10px 0;
-  }
-  .import-fields label {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.8rem;
-    opacity: 0.75;
-  }
-  .import-fields input[type=number] {
-    width: 72px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,0.15);
-    background: rgba(255,255,255,0.04);
-    color: inherit;
-    font: inherit;
-  }
-  .import-dropzone {
-    border: 2px dashed rgba(255,255,255,0.18);
-    border-radius: 8px;
-    padding: 22px 14px;
-    text-align: center;
-    cursor: pointer;
-    font-size: 0.85rem;
-    opacity: 0.85;
-    transition: border-color 0.15s, background 0.15s;
-  }
-  .import-dropzone:hover, .import-dropzone.drag {
-    border-color: rgba(255,255,255,0.4);
-    background: rgba(255,255,255,0.03);
-  }
-  .import-dropzone input[type=file] { display: none; }
-  .import-preview-wrap { display: none; margin-top: 12px; text-align: center; }
-  .import-preview-wrap .imgbox { position: relative; display: inline-block; max-width: 100%; }
-  .import-preview-wrap img { max-width: 100%; max-height: 280px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.15); display: block; }
-  .import-preview-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-  .import-hint { font-size: 0.75rem; opacity: 0.6; margin-top: 6px; }
-  .import-status { font-size: 0.82rem; opacity: 0.8; margin-top: 10px; min-height: 1.2em; }
-  .row.row-uncertain { outline: 1px solid #e0a23a; outline-offset: 2px; border-radius: 6px; }
-</style>
 </head>
 <body>
   <div class="container">
@@ -64,29 +14,17 @@
       <div id="rows"></div>
       <button id="addRow" class="btn">+ Add lodestone</button>
 
-      <details class="json-box import-box">
+      <details class="json-box">
         <summary>Import from screenshot</summary>
         <div class="import-fields">
-          <label>How many compasses
+          <label>Amount
             <input type="number" id="importAmount" value="27" min="1">
           </label>
-          <label>Columns per row
+          <label>Columns
             <input type="number" id="importCols" value="9" min="1">
           </label>
-          <button id="importRun" class="btn" disabled>Import</button>
         </div>
-        <div class="import-dropzone" id="importDropzone">
-          Click to choose a screenshot, or drag one here
-          <input type="file" id="importFile" accept="image/*">
-        </div>
-        <div class="import-preview-wrap" id="importPreviewWrap">
-          <div class="imgbox">
-            <img id="importPreviewImg" alt="screenshot preview">
-            <canvas id="importOverlay"></canvas>
-          </div>
-          <div class="import-hint">Yellow lines are the detected grid — adjust "columns per row" if they don't line up with your icons.</div>
-        </div>
-        <div class="import-status" id="importStatus"></div>
+        <input type="file" id="importFile" accept="image/*">
       </details>
 
       <details class="json-box">
