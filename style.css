@@ -333,6 +333,8 @@ footer a:hover {
   color: #fff;
 }
 
+/* --- Import from screenshot --- */
+
 .import-fields {
   display: flex;
   gap: 10px;
@@ -362,4 +364,39 @@ footer a:hover {
 .import-fields input[type="number"]:focus {
   outline: none;
   border-color: #666;
+}
+
+.import-grid {
+  display: grid;
+  gap: 3px;
+  margin-top: 8px;
+}
+
+.import-cell {
+  background: #1a1a1a;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 2px;
+  text-align: center;
+}
+
+.import-cell canvas,
+.import-cell img {
+  width: 100%;
+  aspect-ratio: 1;
+  image-rendering: pixelated;
+  display: block;
+  border-radius: 2px;
+}
+
+.import-cell .ref {
+  margin-top: 2px;
+  background: #111;
+}
+
+.import-cell .num {
+  font-size: 8px;
+  color: #777;
+  font-family: monospace;
+  margin-top: 1px;
 }
